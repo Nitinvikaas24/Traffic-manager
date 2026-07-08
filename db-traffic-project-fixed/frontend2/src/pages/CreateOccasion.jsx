@@ -25,7 +25,7 @@ const CreateOccasion = () => {
   const fetchSignals = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/signals');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/signals`);
       setSignals(response.data);
       setLoading(false);
     } catch (error) {
@@ -46,7 +46,7 @@ const CreateOccasion = () => {
     setError('');
     
     try {
-      await axios.post('http://localhost:5000/api/occasions', formData);
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/occasions`, formData);
       setSuccess(true);
       
       // Navigate back to occasions list after a short delay

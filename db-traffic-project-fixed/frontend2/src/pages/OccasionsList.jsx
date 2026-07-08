@@ -54,7 +54,7 @@ const OccasionsList = () => {
   const fetchOccasions = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/occasions');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/occasions`);
       setOccasions(response.data);
       setFilteredOccasions(response.data);
       setLoading(false);
@@ -121,7 +121,7 @@ const OccasionsList = () => {
     if (!occasionToDelete) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/occasions/${occasionToDelete.occasionId}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/occasions/${occasionToDelete.occasionId}`);
       fetchOccasions(); // Refresh the list
       handleDeleteDialogClose();
     } catch (error) {
@@ -135,9 +135,9 @@ const OccasionsList = () => {
     
     try {
       if (occasion.isActive) {
-        await axios.patch(`http://localhost:5000/api/occasions/${occasion.occasionId}/deactivate`);
+        await axios.patch(`${import.meta.env.VITE_API_URL}/api/occasions/${occasion.occasionId}/deactivate`);
       } else {
-        await axios.patch(`http://localhost:5000/api/occasions/${occasion.occasionId}/activate`);
+        await axios.patch(`${import.meta.env.VITE_API_URL}/api/occasions/${occasion.occasionId}/activate`);
       }
       
       fetchOccasions(); // Refresh the list

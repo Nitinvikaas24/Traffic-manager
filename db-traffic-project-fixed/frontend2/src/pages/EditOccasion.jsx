@@ -30,8 +30,8 @@ const EditOccasion = () => {
       try {
         // Fetch signals and occasion data in parallel
         const [signalsRes, occasionRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/signals'),
-          axios.get(`http://localhost:5000/api/occasions/${id}`)
+          axios.get(`${import.meta.env.VITE_API_URL}/api/signals`),
+          axios.get(`${import.meta.env.VITE_API_URL}/api/occasions/${id}`)
         ]);
         
         setSignals(signalsRes.data);
@@ -53,7 +53,7 @@ const EditOccasion = () => {
     setError('');
     
     try {
-      await axios.put(`http://localhost:5000/api/occasions/${id}`, formData);
+      await axios.put(`${import.meta.env.VITE_API_URL}/api/occasions/${id}`, formData);
       setSuccess(true);
       
       // Navigate back to occasions list after a short delay

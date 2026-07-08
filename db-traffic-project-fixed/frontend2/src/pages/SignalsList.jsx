@@ -19,7 +19,7 @@ const SignalsList = () => {
   const fetchSignals = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/signals');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/signals`);
       setSignals(response.data);
       setFilteredSignals(response.data);
       setLoading(false);

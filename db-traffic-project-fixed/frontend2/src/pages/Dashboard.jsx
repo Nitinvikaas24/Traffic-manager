@@ -43,10 +43,10 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const [signalsRes, occasionsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/signals'),
-        axios.get('http://localhost:5000/api/occasions')
+        axios.get(`${import.meta.env.VITE_API_URL}/api/signals`),
+        axios.get(`${import.meta.env.VITE_API_URL}/api/occasions`)
       ]);
-      const routesRes = await axios.get('http://localhost:5000/api/routes');
+      const routesRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/routes`);
       
       setSignals(signalsRes.data);
       setOccasions(occasionsRes.data);

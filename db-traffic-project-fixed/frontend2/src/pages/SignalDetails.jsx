@@ -53,10 +53,10 @@ const SignalDetails = () => {
     try {
       // Fetch signal and occasions data in parallel
       const [signalRes, occasionsRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/signals/${id}`),
-        axios.get('http://localhost:5000/api/occasions')
+        axios.get(`${import.meta.env.VITE_API_URL}/api/signals/${id}`),
+        axios.get(`${import.meta.env.VITE_API_URL}/api/occasions`)
       ]);
-      const routesRes = await axios.get('http://localhost:5000/api/routes');
+      const routesRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/routes`);
       
       setSignal(signalRes.data);
       setRoutes(routesRes.data);
@@ -96,7 +96,7 @@ const SignalDetails = () => {
     setLoading(true);
     
     try {
-      await axios.post(`http://localhost:5000/api/signals/${id}/reset`);
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/signals/${id}/reset`);
       setResetSuccess(true);
       setResetDialogOpen(false);
       

@@ -1,0 +1,17 @@
+{
+  "name": "dbmsproject",
+  "version": "1.0.0",
+  "description": "A MERN (MongoDB, Express, React, Node.js) stack application for managing traffic signals during special occasions and events. This system allows traffic police to automate changes to traffic signal timing based on scheduled events.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "node": "^23.11.0",
+    "react-leaflet": "^5.0.0"
+  }
+}

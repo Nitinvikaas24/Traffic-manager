@@ -1,0 +1,84 @@
+[
+  {
+    "occasionId": "EASTER_LM_2025",
+    "name": "Easter Sunday Service 2025 - Little Mount Area",
+    "dates": ["2025-04-20T00:00:00.000Z"],
+    "timeWindows": [
+      {
+        "dayOfWeek": 0,
+        "startHour": 8,
+        "endHour": 12
+      }
+    ],
+    "affectedSignalIds": [
+      "LM_CHURCH_JN_01",
+      "LM_CHURCH_APP_01"
+    ],
+    "adjustmentRules": {
+      "cycleLength": 150,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 70 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 50 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "isActive": true
+  },
+  {
+    "occasionId": "MARKET_WEEKEND_2025",
+    "name": "Weekend Market Rush 2025",
+    "dates": ["2025-08-10T00:00:00.000Z", "2025-08-17T00:00:00.000Z"],
+    "timeWindows": [
+      {
+        "dayOfWeek": 0,
+        "startHour": 9,
+        "endHour": 14
+      }
+    ],
+    "affectedSignalIds": [
+      "LM_CHURCH_MID_01",
+      "LM_MARKET_01",
+      "LM_MARKET_02"
+    ],
+    "adjustmentRules": {
+      "cycleLength": 180,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 85 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 65 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "isActive": true
+  },
+  {
+    "occasionId": "RING_DIVERSION_2025",
+    "name": "Ring Road Diversion",
+    "dates": ["2025-09-01T00:00:00.000Z"],
+    "timeWindows": [
+      {
+        "dayOfWeek": 1,
+        "startHour": 7,
+        "endHour": 11
+      }
+    ],
+    "affectedSignalIds": [
+      "LM_RING_01",
+      "LM_RING_02"
+    ],
+    "adjustmentRules": {
+      "cycleLength": 160,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 75 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 55 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "isActive": true
+  }
+]

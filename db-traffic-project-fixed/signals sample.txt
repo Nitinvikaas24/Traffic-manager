@@ -1,0 +1,205 @@
+[
+  {
+    "signalId": "LM_CHURCH_JN_01",
+    "intersectionName": "Little Mount on Anna Salai",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.224152, 13.01468]
+    },
+    "defaultTiming": {
+      "cycleLength": 120,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 50 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 120,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 50 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_CHURCH_APP_01",
+    "intersectionName": "Anna Salai Approach Section",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.224441, 13.018727]
+    },
+    "defaultTiming": {
+      "cycleLength": 100,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 15 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 100,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 15 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_CHURCH_MID_01",
+    "intersectionName": "Anna Salai Mid Link",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.225345, 13.016083]
+    },
+    "defaultTiming": {
+      "cycleLength": 110,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 110,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_MARKET_01",
+    "intersectionName": "Anna Salai Near Saidapet",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.226342, 13.021983]
+    },
+    "defaultTiming": {
+      "cycleLength": 100,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 40 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 100,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 40 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_MARKET_02",
+    "intersectionName": "Kathipara Interchange Approach",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.2027221, 13.0059939]
+    },
+    "defaultTiming": {
+      "cycleLength": 90,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 35 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 25 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 90,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 35 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 25 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_RING_01",
+    "intersectionName": "GST Road Approach",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.2064914, 13.0076347]
+    },
+    "defaultTiming": {
+      "cycleLength": 120,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 50 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 120,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 50 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  },
+  {
+    "signalId": "LM_RING_02",
+    "intersectionName": "Alandur GST Link",
+    "location": {
+      "type": "Point",
+      "coordinates": [80.2082237, 13.0078871]
+    },
+    "defaultTiming": {
+      "cycleLength": 105,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 105,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "status": "normal"
+  }
+]

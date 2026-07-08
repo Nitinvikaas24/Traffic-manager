@@ -1,0 +1,136 @@
+.map-container {
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  height: 100%;
+  min-height: 500px;
+}
+
+.traffic-map {
+  height: 100%;
+  width: 100%;
+}
+
+.traffic-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.signal-popup {
+  padding: 16px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  min-width: 220px;
+}
+
+.popup-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0 0 4px 0;
+}
+
+.popup-id {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 8px 0;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 16px;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.status-success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-warning {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.status-error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.popup-info {
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.popup-timestamp {
+  font-size: 12px;
+  color: #666;
+  margin: 8px 0 0 0;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.legend-title {
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  font-weight: bold;
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.legend-line {
+  width: 18px;
+  height: 4px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.legend-normal {
+  background-color: green;
+}
+
+.legend-altered {
+  background-color: orange;
+}
+
+.legend-offline {
+  background-color: red;
+} 
+
+.legend-route-normal {
+  background-color: #1976d2;
+}
+
+.legend-route-affected {
+  background-color: #d32f2f;
+}

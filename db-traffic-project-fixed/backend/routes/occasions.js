@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Occasion = require('../models/Occasion');
 const Signal = require('../models/Signal');
-const { authenticateToken, requireOfficer } = require('../middleware/auth');
 const { default: mongoose } = require('mongoose');
 
 // Get all occasions
@@ -29,11 +28,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create a new occasion
-router.post('/', authenticateToken, requireOfficer, async (req, res) => {
-  const occasion = new Occasion(req.body);
+router.post('/', async (req, res) => {
+  const occasion = new Occasion({ ...req.body, officerName: req.user.username });
   try {
-    occasion.createdBy = req.user.username;
-    occasion.updatedBy = req.user.username;
     const newOccasion = await occasion.save();
     
     // Apply the occasion's timing rules to affected signals
@@ -48,11 +45,11 @@ router.post('/', authenticateToken, requireOfficer, async (req, res) => {
 });
 
 // Update an occasion
-router.put('/:id', authenticateToken, requireOfficer, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const updatedOccasion = await Occasion.findOneAndUpdate(
       { occasionId: req.params.id },
-      { ...req.body, updatedBy: req.user.username },
+      { ...req.body, officerName: req.user.username },
       { new: true, runValidators: true }
     );
     
@@ -75,7 +72,7 @@ router.put('/:id', authenticateToken, requireOfficer, async (req, res) => {
 });
 
 // Delete an occasion
-router.delete('/:id', authenticateToken, requireOfficer, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const occasion = await Occasion.findOne({ occasionId: req.params.id });
     
@@ -96,7 +93,7 @@ router.delete('/:id', authenticateToken, requireOfficer, async (req, res) => {
 });
 
 // Activate an occasion
-router.patch('/:id/activate', authenticateToken, requireOfficer, async (req, res) => {
+router.patch('/:id/activate', async (req, res) => {
   try {
     const occasion = await Occasion.findOneAndUpdate(
       { occasionId: req.params.id },
@@ -118,7 +115,7 @@ router.patch('/:id/activate', authenticateToken, requireOfficer, async (req, res
 });
 
 // Deactivate an occasion
-router.patch('/:id/deactivate', authenticateToken, requireOfficer, async (req, res) => {
+router.patch('/:id/deactivate', async (req, res) => {
   try {
     const occasion = await Occasion.findOneAndUpdate(
       { occasionId: req.params.id },

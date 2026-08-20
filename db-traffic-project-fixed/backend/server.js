@@ -1,121 +1,65 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
-const fs = require('fs');
-const path = require('path');
+
+// Load environment variables
+dotenv.config();
+
+// Fail fast on missing critical config rather than running with an undefined
+// JWT secret or silently never connecting to a database.
+const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
+const missingEnvVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+if (missingEnvVars.length > 0) {
+  console.error(`Missing required environment variable(s): ${missingEnvVars.join(', ')}`);
+  console.error('Set them in backend/.env before starting the server.');
+  process.exit(1);
+}
 
 // Route imports
 const authRoutes = require('./routes/auth');
 const signalRoutes = require('./routes/signals');
 const occasionRoutes = require('./routes/occasions');
-const routeRoutes = require('./routes/routes');
-const Officer = require('./models/Officer');
-const Signal = require('./models/Signal');
-const Route = require('./models/Route');
-const { buildRouteCoordinates } = require('./utils/routeGeometry');
-
-// Load environment variables
-dotenv.config();
+const roadRoutes = require('./routes/roads');
+const { authenticate } = require('./middleware/auth');
+const { startScheduler } = require('./services/scheduler');
 
 // Initialize express app
 const app = express();
 
-// Middleware
-app.use(cors());
+// Security/observability middleware
+app.use(helmet());
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim());
+app.use(cors({ origin: allowedOrigins }));
+
 app.use(express.json());
 
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
+
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/trafficSignals')
-  .then(() => console.log('MongoDB connected successfully'))
-  .then(() => seedDefaultOfficer())
-  .then(() => seedDefaultSignals())
-  .then(() => seedDefaultRoutes())
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('MongoDB connected successfully');
+    startScheduler();
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
-async function seedDefaultOfficer() {
-  try {
-    const officerCount = await Officer.countDocuments();
-
-    if (officerCount > 0) {
-      return;
-    }
-
-    const username = process.env.DEFAULT_OFFICER_USERNAME || 'officer';
-    const password = process.env.DEFAULT_OFFICER_PASSWORD || 'Officer@123';
-    const fullName = process.env.DEFAULT_OFFICER_FULL_NAME || 'Traffic Officer';
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    await Officer.create({
-      username,
-      passwordHash,
-      fullName,
-      role: 'officer'
-    });
-
-    console.log(`Seeded default officer account: ${username}`);
-    console.log(`Default password: ${password}`);
-  } catch (error) {
-    console.error('Error seeding default officer:', error);
-  }
-}
-
-async function seedDefaultSignals() {
-  try {
-    const signalCount = await Signal.countDocuments();
-
-    if (signalCount > 0) {
-      return;
-    }
-
-    const signalsFile = path.join(__dirname, '..', 'signals sample.txt');
-    const fileContents = fs.readFileSync(signalsFile, 'utf8');
-    const signalsData = JSON.parse(fileContents);
-    const signalsArray = Array.isArray(signalsData) ? signalsData : [signalsData];
-
-    await Signal.insertMany(signalsArray);
-    console.log(`Seeded ${signalsArray.length} default signals`);
-  } catch (error) {
-    console.error('Error seeding default signals:', error);
-  }
-}
-
-async function seedDefaultRoutes() {
-  try {
-    const routeCount = await Route.countDocuments();
-
-    if (routeCount > 0) {
-      return;
-    }
-
-    const routesFile = path.join(__dirname, '..', 'routes sample.txt');
-    const fileContents = fs.readFileSync(routesFile, 'utf8');
-    const routesData = JSON.parse(fileContents);
-    const routesArray = Array.isArray(routesData) ? routesData : [routesData];
-    const resolvedRoutes = [];
-
-    for (const routeSeed of routesArray) {
-      const pathCoordinates = await buildRouteCoordinates(routeSeed);
-      resolvedRoutes.push({
-        ...routeSeed,
-        pathCoordinates
-      });
-    }
-
-    await Route.insertMany(resolvedRoutes);
-    console.log(`Seeded ${resolvedRoutes.length} default routes`);
-  } catch (error) {
-    console.error('Error seeding default routes:', error);
-  }
-}
-
-// Routes
+// Routes — /api/auth/login is the only unauthenticated API route
 app.use('/api/auth', authRoutes);
-app.use('/api/signals', signalRoutes);
-app.use('/api/occasions', occasionRoutes);
-app.use('/api/routes', routeRoutes);
+app.use('/api/signals', authenticate, signalRoutes);
+app.use('/api/occasions', authenticate, occasionRoutes);
+app.use('/api/roads', authenticate, roadRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -126,4 +70,4 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});

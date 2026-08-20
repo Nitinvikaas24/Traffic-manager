@@ -2,14 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
 
 // Import models
-const Officer = require('./models/Officer');
 const Signal = require('./models/Signal');
 const Occasion = require('./models/Occasion');
-const Route = require('./models/Route');
-const { buildRouteCoordinates } = require('./utils/routeGeometry');
 
 // Load environment variables
 dotenv.config();
@@ -25,14 +21,6 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/trafficSi
 // Sample data files
 const signalsFile = path.join(__dirname, '..', 'signals sample.txt');
 const occasionsFile = path.join(__dirname, '..', 'occasions sample.txt');
-const routesFile = path.join(__dirname, '..', 'routes sample.txt');
-
-const defaultOfficer = {
-  username: process.env.DEFAULT_OFFICER_USERNAME || 'officer',
-  password: process.env.DEFAULT_OFFICER_PASSWORD || 'Officer@123',
-  fullName: process.env.DEFAULT_OFFICER_FULL_NAME || 'Traffic Officer',
-  role: 'officer'
-};
 
 // Function to read and parse JSON data
 const readJsonFile = (filePath) => {
@@ -69,36 +57,6 @@ const importSignals = async () => {
   }
 };
 
-// Import routes data
-const importRoutes = async () => {
-  try {
-    const routesData = readJsonFile(routesFile);
-
-    if (!routesData) {
-      console.log('No routes data to import');
-      return;
-    }
-
-    const routesArray = Array.isArray(routesData) ? routesData : [routesData];
-    const resolvedRoutes = [];
-
-    for (const routeSeed of routesArray) {
-      const pathCoordinates = await buildRouteCoordinates(routeSeed);
-      resolvedRoutes.push({
-        ...routeSeed,
-        pathCoordinates
-      });
-    }
-
-    await Route.deleteMany({});
-
-    const result = await Route.insertMany(resolvedRoutes);
-    console.log(`${result.length} routes imported successfully`);
-  } catch (error) {
-    console.error('Error importing routes:', error);
-  }
-};
-
 // Import occasions data
 const importOccasions = async () => {
   try {
@@ -123,43 +81,10 @@ const importOccasions = async () => {
   }
 };
 
-// Import default officer account
-const importOfficer = async () => {
-  try {
-    await Officer.deleteMany({});
-
-    const passwordHash = await bcrypt.hash(defaultOfficer.password, 10);
-
-    await Officer.create({
-      username: defaultOfficer.username,
-      passwordHash,
-      fullName: defaultOfficer.fullName,
-      role: defaultOfficer.role
-    });
-
-    console.log(`Default officer account imported: ${defaultOfficer.username}`);
-  } catch (error) {
-    console.error('Error importing officer account:', error);
-  }
-};
-
-// Clear existing demo data so Atlas is repopulated cleanly
-const clearDemoData = async () => {
-  await Promise.all([
-    Officer.deleteMany({}),
-    Signal.deleteMany({}),
-    Route.deleteMany({}),
-    Occasion.deleteMany({})
-  ]);
-};
-
 // Run import process
 const importData = async () => {
   try {
-    await clearDemoData();
-    await importOfficer();
     await importSignals();
-    await importRoutes();
     await importOccasions();
     console.log('Data import completed');
     process.exit(0);

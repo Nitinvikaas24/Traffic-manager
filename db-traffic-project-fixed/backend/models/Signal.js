@@ -19,6 +19,57 @@ const TimingSchema = new mongoose.Schema({
   phases: [PhaseSchema]
 });
 
+const OverrideSchema = new mongoose.Schema({
+  active: {
+    type: Boolean,
+    default: false
+  },
+  forcedPhase: {
+    type: String,
+    enum: ['red', 'green'],
+    required: false
+  },
+  reason: {
+    type: String,
+    required: false
+  },
+  officerName: {
+    type: String,
+    required: false
+  },
+  setAt: {
+    type: Date,
+    required: false
+  }
+}, { _id: false });
+
+const AuditLogEntrySchema = new mongoose.Schema({
+  action: {
+    type: String,
+    required: true
+  },
+  officerName: {
+    type: String,
+    required: false
+  },
+  reason: {
+    type: String,
+    required: false
+  },
+  previousStatus: {
+    type: String,
+    required: false
+  },
+  newStatus: {
+    type: String,
+    required: false
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+}, { _id: false });
+
 const SignalSchema = new mongoose.Schema({
   signalId: {
     type: String,
@@ -50,16 +101,21 @@ const SignalSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['normal', 'altered', 'offline', 'maintenance'],
+    enum: ['normal', 'altered', 'offline', 'maintenance', 'blocked', 'overridden'],
     default: 'normal'
+  },
+  override: {
+    type: OverrideSchema,
+    required: false,
+    default: () => ({ active: false })
+  },
+  auditLog: {
+    type: [AuditLogEntrySchema],
+    default: []
   },
   lastUpdated: {
     type: Date,
     default: Date.now
-  },
-  lastUpdatedBy: {
-    type: String,
-    default: 'system'
   }
 }, { timestamps: true });
 

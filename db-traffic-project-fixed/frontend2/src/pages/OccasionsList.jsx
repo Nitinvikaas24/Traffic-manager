@@ -36,7 +36,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/client';
 
 const OccasionsList = () => {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ const OccasionsList = () => {
   const fetchOccasions = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/occasions`);
+      const response = await apiClient.get('/api/occasions');
       setOccasions(response.data);
       setFilteredOccasions(response.data);
       setLoading(false);
@@ -121,7 +121,7 @@ const OccasionsList = () => {
     if (!occasionToDelete) return;
 
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/occasions/${occasionToDelete.occasionId}`);
+      await apiClient.delete(`/api/occasions/${occasionToDelete.occasionId}`);
       fetchOccasions(); // Refresh the list
       handleDeleteDialogClose();
     } catch (error) {
@@ -135,9 +135,9 @@ const OccasionsList = () => {
     
     try {
       if (occasion.isActive) {
-        await axios.patch(`${import.meta.env.VITE_API_URL}/api/occasions/${occasion.occasionId}/deactivate`);
+        await apiClient.patch(`/api/occasions/${occasion.occasionId}/deactivate`);
       } else {
-        await axios.patch(`${import.meta.env.VITE_API_URL}/api/occasions/${occasion.occasionId}/activate`);
+        await apiClient.patch(`/api/occasions/${occasion.occasionId}/activate`);
       }
       
       fetchOccasions(); // Refresh the list
@@ -161,7 +161,7 @@ const OccasionsList = () => {
 
   // Check if an occasion is currently active based on time windows
   const isCurrentlyActive = (occasion) => {
-    if (!occasion.isActive || !Array.isArray(occasion.timeWindows)) return false;
+    if (!occasion.isActive) return false;
     
     const now = new Date();
     const today = now.getDay(); // 0-6 (Sunday-Saturday)
@@ -246,12 +246,12 @@ const OccasionsList = () => {
                       <TableCell>{occasion.occasionId}</TableCell>
                       <TableCell>{occasion.name}</TableCell>
                       <TableCell>
-                        {(occasion.dates || []).map((date, index) => (
+                        {occasion.dates.map((date, index) => (
                           <div key={index}>{formatDate(date)}</div>
                         ))}
                       </TableCell>
                       <TableCell>
-                        {(occasion.timeWindows || []).map((window, index) => {
+                        {occasion.timeWindows.map((window, index) => {
                           const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                           return (
                             <div key={index}>
@@ -277,7 +277,7 @@ const OccasionsList = () => {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell>{(occasion.affectedSignalIds || []).length}</TableCell>
+                      <TableCell>{occasion.affectedSignalIds.length}</TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex' }}>
                           <Tooltip title="Edit">

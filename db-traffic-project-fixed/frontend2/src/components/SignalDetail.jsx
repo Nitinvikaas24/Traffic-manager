@@ -1,100 +1,88 @@
 import React from 'react';
-import './SignalDetail.css';
+import { Card, CardContent, CardHeader, Chip, Box, Typography, LinearProgress, Stack, Divider } from '@mui/material';
+
+const STATUS_COLOR = {
+  normal: 'success',
+  altered: 'warning',
+  overridden: 'error',
+  blocked: 'error',
+  offline: 'default',
+  maintenance: 'default',
+};
+
+const PHASE_COLOR = (phaseId) => {
+  if (/green/i.test(phaseId)) return 'success';
+  if (/amber/i.test(phaseId)) return 'warning';
+  if (/red/i.test(phaseId)) return 'error';
+  return 'inherit';
+};
 
 const SignalDetail = ({ signal }) => {
   if (!signal) {
-    return <div className="signal-detail-placeholder">Select a signal to view details</div>;
+    return (
+      <Card>
+        <CardContent>
+          <Typography color="text.secondary">Select a signal to view details</Typography>
+        </CardContent>
+      </Card>
+    );
   }
 
-  // Format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString();
-  };
-
-  // Get status class for styling
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'normal':
-        return 'status-success';
-      case 'altered':
-        return 'status-warning';
-      default:
-        return 'status-error';
-    }
-  };
+  const formatDate = (dateString) => (dateString ? new Date(dateString).toLocaleString() : '—');
 
   return (
-    <div className="signal-detail">
-      <div className="signal-header">
-        <h3 className="signal-title">{signal.intersectionName}</h3>
-        <span className={`status-badge ${getStatusClass(signal.status)}`}>
-          {signal.status.toUpperCase()}
-        </span>
-      </div>
+    <Card>
+      <CardHeader
+        title={signal.intersectionName}
+        subheader={signal.signalId}
+        action={<Chip label={signal.status.toUpperCase()} color={STATUS_COLOR[signal.status] || 'default'} size="small" sx={{ m: 2 }} />}
+      />
+      <Divider />
+      <CardContent>
+        <Stack spacing={2}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Last Updated
+            </Typography>
+            <Typography variant="body2">{formatDate(signal.lastUpdated)}</Typography>
+          </Box>
 
-      <div className="signal-info-grid">
-        <div className="info-item">
-          <span className="info-label">Signal ID:</span>
-          <span className="info-value">{signal.signalId}</span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">Last Updated:</span>
-          <span className="info-value">{formatDate(signal.lastUpdated)}</span>
-        </div>
-      </div>
+          {signal.override?.active && (
+            <Box sx={{ p: 1.5, border: 1, borderColor: 'error.main', borderRadius: 1 }}>
+              <Typography variant="body2" color="error.main" fontWeight="bold">
+                Overridden: forced {signal.override.forcedPhase?.toUpperCase()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {signal.override.officerName} — {signal.override.reason}
+              </Typography>
+            </Box>
+          )}
 
-      <div className="section">
-        <h4 className="section-title">Current Timing</h4>
-        <div className="timing-info">
-          <div className="timing-header">
-            <span className="timing-label">Cycle Length:</span>
-            <span className="timing-value">{signal.currentTiming.cycleLength} seconds</span>
-          </div>
-          <div className="phases-container">
-            {(signal.currentTiming?.phases || []).map((phase, index) => (
-              <div key={index} className="phase-item">
-                <div className="phase-header">{phase.phaseId}</div>
-                <div className="phase-duration">
-                  <div 
-                    className="phase-duration-bar" 
-                    style={{ 
-                      width: `${(phase.duration / signal.currentTiming.cycleLength) * 100}%`,
-                      backgroundColor: 
-                        phase.phaseId.includes('Green') ? '#4caf50' : 
-                        phase.phaseId.includes('Amber') ? '#ff9800' : 
-                        phase.phaseId.includes('Red') ? '#f44336' : '#757575'
-                    }}
-                  ></div>
-                  <span className="duration-text">{phase.duration}s</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {Array.isArray(signal.occasions) && signal.occasions.length > 0 && (
-        <div className="section">
-          <h4 className="section-title">Active Occasions</h4>
-          <div className="occasions-list">
-            {signal.occasions.map((occasion) => (
-              <div key={occasion.occasionId} className="occasion-item">
-                <div className="occasion-name">{occasion.name}</div>
-                <div className="occasion-dates">
-                  {(occasion.dates || []).map((date, index) => (
-                    <span key={index} className="occasion-date">
-                      {new Date(date).toLocaleDateString()}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Current Timing — {signal.currentTiming.cycleLength}s cycle
+            </Typography>
+            <Stack spacing={1.5}>
+              {signal.currentTiming.phases.map((phase) => (
+                <Box key={phase.phaseId}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption">{phase.phaseId}</Typography>
+                    <Typography variant="caption">{phase.duration}s</Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(phase.duration / signal.currentTiming.cycleLength) * 100}
+                    color={PHASE_COLOR(phase.phaseId)}
+                    sx={{ height: 8, borderRadius: 1 }}
+                  />
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 };
 
-export default SignalDetail; 
+export default SignalDetail;

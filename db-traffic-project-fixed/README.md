@@ -1,142 +1,77 @@
 # Traffic Signal Management System
 
-A MERN (MongoDB, Express, React, Node.js) stack application for managing traffic signals during special occasions and events. This system allows traffic police to automate changes to traffic signal timing based on scheduled events.
+A real-time command-center application for traffic police to monitor, control, and schedule traffic signals across Chennai — built on the MERN stack, with a custom Dijkstra / A* / Yen's K-shortest-paths routing engine that reacts live to signal state, real OpenStreetMap road and signal data, JWT-authenticated role-based access, and a MapLibre GL-powered live map.
 
-## Features
+**Live demo:** https://traffic-manager-pi.vercel.app
 
-- **Dashboard**: Overview of traffic signals and active occasions
-- **Interactive Map**: Visualize traffic signals on a map with real-time status
-- **Signal Management**: View and modify traffic signal timing
-- **Occasion Management**: Create and schedule special occasions/events
-- **Time-based Automation**: Automatically adjust traffic signals during specified time windows
-- **CRUD Operations**: Full Create, Read, Update, Delete operations for signals and occasions
+## Demo Login (for recruiters / interviewers)
 
-## Technologies Used
+No sign-up needed — use either of these on the live demo:
+
+| Role    | Username   | Password       |
+|---------|------------|----------------|
+| Officer | `officer1` | `ChangeMe123!` |
+| Admin   | `admin`    | `ChangeMe123!` |
+
+The **admin** account additionally unlocks signal record management (creating new signals) — everything else (overrides, event mode, scheduling, routing) is available to both roles.
+
+## How to Use
+
+1. Open the live demo and sign in with either demo account above.
+2. **Command Center** (`/`) is the main view: a live map of ~370 real Chennai traffic signals, a searchable signal list, and a right-hand panel for routing and scheduling.
+3. **Click any signal** on the map or in the list to open its detail drawer — view/edit its phase timing, force a manual override (with a reason), or review its audit log.
+4. **Routing Engine** (right panel, "Routes" tab): pick a source and destination signal, click *Find Routes* — the engine builds a live road graph from OpenStreetMap and returns three ranked routes (fastest/alternate/fallback) with live ETAs. Editing a signal that sits on an active route re-highlights the affected route(s) with the updated ETA.
+5. **Event Mode** (`E`): select a cluster of signals on the map and block them in one action (e.g. for a VIP convoy or parade route) — the routing engine reroutes around them automatically.
+6. **Schedules** ("Schedule" tab, or `/occasions`): create a recurring signal-timing change (e.g. "reduce green time every weekday 8–10am") — a background scheduler applies and reverts it automatically, no manual intervention needed.
+7. **Add Signal** (admin only): click-to-place a new signal directly on the map, or use the "New Signal" button on the `/signals` page.
+8. Keyboard shortcuts: `R` refresh, `E` event mode, `S` new schedule.
+
+## Architecture
+
+```
+frontend2/   React 18 + Vite + MUI v5 + MapLibre GL + motion — the actual app
+backend/     Express + Mongoose (MongoDB) — REST API, JWT auth, routing data proxy, cron scheduler
+```
 
 ### Backend
-- Node.js
-- Express.js
-- MongoDB (with Mongoose)
-- RESTful API
+- **Auth**: JWT-based login (`backend/routes/auth.js`, `backend/middleware/auth.js`), roles (`officer`/`admin`) enforced per-route. Officer attribution on every mutating action is derived server-side from the authenticated session, never trusted from the client.
+- **Data model**: `Signal` (location, default/current phase timing, live status, override state, audit log) and `Occasion` (recurring weekly time-windowed signal timing changes) — see `backend/models/`.
+- **Scheduler**: `backend/services/scheduler.js` runs every minute via `node-cron`, auto-applying/reverting `Occasion` rules based on the current day/hour — idempotent, so it self-corrects regardless of prior state.
+- **Road data proxy**: `backend/routes/roads.js` proxies OpenStreetMap Overpass API queries (with caching) so the frontend routing engine can build a real road graph.
+- **Hardening**: helmet, CORS allowlist, rate limiting (stricter on login), request logging, fail-fast startup on missing config.
 
 ### Frontend
-- React
-- React Router
-- Material UI
-- Leaflet (for maps)
-- Axios
+- **Routing engine** (`frontend2/src/utils/routing.js`, `osmRoads.js`, `minHeap.js`, `geo.js`): builds a weighted directed graph from real OSM road geometry + live signal state (distance, expected signal wait, congestion heuristic), and implements Dijkstra (binary min-heap), A* (Haversine heuristic), and Yen's K-shortest-paths from scratch — no third-party routing library. Fully unit-tested (`*.test.js`, `npm run test`).
+- **Map**: `frontend2/src/components/TrafficMap.jsx` renders signals as a single GPU-rendered MapLibre GL circle layer (not one DOM marker per signal) so it scales to a city's worth of signals, with animated route polylines and live ETA chips.
+- **Command Center** (`frontend2/src/layouts/CommandCenter.jsx`): the main dashboard — live polling, routing panel, event mode, schedule timeline, signal detail drawer.
 
-## Getting Started
+### Data
+Real traffic-signal locations for Chennai are pulled from OpenStreetMap (`backend/importChennaiSignals.js`, `npm run import-chennai-signals`) — every `highway=traffic_signals` node currently mapped in OSM for Chennai's administrative boundary. Phase timing is a synthetic default plan (OSM has no real timing data); officers can edit any signal's live timing through the app.
 
-### Prerequisites
-- Node.js (v14+)
-- MongoDB (local or Atlas)
+## Running it locally
 
-### Installation
+**Prerequisites**: Node 18+, a MongoDB instance (local or Atlas).
 
-1. Clone the repository
-```
-git clone https://github.com/yourusername/traffic-signal-management.git
-cd traffic-signal-management
-```
-
-2. Install backend dependencies
-```
+```bash
+# Backend
 cd backend
+cp .env.example .env        # fill in MONGODB_URI and a real JWT_SECRET
 npm install
-```
+npm run create-users        # seeds admin/officer1 demo accounts
+npm run import-chennai-signals   # optional: seed real Chennai signal data
+npm run dev                 # http://localhost:5000
 
-3. Install frontend dependencies
-```
-cd ../frontend
+# Frontend (separate terminal)
+cd frontend2
+cp .env.example .env        # VITE_API_URL=http://localhost:5000
 npm install
+npm run dev                 # http://localhost:5173
 ```
 
-4. Create .env file in the backend directory with:
-```
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/trafficSignals
-```
+Run the test suites with `npm test` in either directory.
 
-### Running the Application
+## Known limitations
 
-1. Start the backend server
-```
-cd backend
-npm run dev
-```
-
-2. Start the frontend
-```
-cd frontend
-npm start
-```
-
-3. Open your browser and navigate to `http://localhost:3000`
-
-### Officer Access
-
-The create/edit/reset flows are protected and require officer login.
-
-If the database has no officers yet, the backend seeds a default account on startup:
-
-- Username: `officer`
-- Password: `Officer@123`
-
-You can override those values with `DEFAULT_OFFICER_USERNAME`, `DEFAULT_OFFICER_PASSWORD`, and `DEFAULT_OFFICER_FULL_NAME` in the backend environment.
-
-### Default Signals
-
-If the signals collection is empty, the backend seeds the sample signals from `signals sample.txt` on startup so the occasion form has signals to select and route changes can affect real records.
-
-## Project Structure
-
-### Backend
-- `/backend/server.js` - Main server file
-- `/backend/models/` - Database models (Signal.js, Occasion.js)
-- `/backend/routes/` - API routes (signals.js, occasions.js)
-
-### Frontend
-- `/frontend/src/components/` - Reusable UI components
-- `/frontend/src/pages/` - Main application pages
-- `/frontend/src/App.js` - Main application component with routing
-
-## API Endpoints
-
-### Signals
-- `GET /api/signals` - Get all signals
-- `GET /api/signals/:id` - Get a specific signal
-- `POST /api/signals` - Create a new signal
-- `PUT /api/signals/:id` - Update a signal
-- `DELETE /api/signals/:id` - Delete a signal
-- `POST /api/signals/:id/reset` - Reset a signal to default timing
-
-### Occasions
-- `GET /api/occasions` - Get all occasions
-- `GET /api/occasions/:id` - Get a specific occasion
-- `POST /api/occasions` - Create a new occasion
-- `PUT /api/occasions/:id` - Update an occasion
-- `DELETE /api/occasions/:id` - Delete an occasion
-- `PATCH /api/occasions/:id/activate` - Activate an occasion
-- `PATCH /api/occasions/:id/deactivate` - Deactivate an occasion
-
-## Data Models
-
-### Signal
-- `signalId`: Unique identifier
-- `intersectionName`: Name of the intersection
-- `location`: Geographic coordinates
-- `defaultTiming`: Default traffic light timing
-- `currentTiming`: Current (possibly altered) timing
-- `status`: Signal status (normal, altered, etc.)
-
-### Occasion
-- `occasionId`: Unique identifier
-- `name`: Event name
-- `dates`: Array of event dates
-- `timeWindows`: Specific times when the event is active
-- `affectedSignalIds`: Signals affected by this occasion
-- `adjustmentRules`: How to adjust signal timing during this occasion
-
-## License
-MIT 
+- Signal phase timing is synthetic by design (OSM has no real timing data) — a genuine production deployment would integrate with real traffic controller hardware/telemetry.
+- The congestion factor in the routing engine is a documented heuristic (status + time-of-day), not live sensor data — there's no such data source available.
+- No self-service account registration — accounts are provisioned via `backend/createUsers.js` (standard practice for an internal tool; avoids an open signup surface for a system that can control real infrastructure).

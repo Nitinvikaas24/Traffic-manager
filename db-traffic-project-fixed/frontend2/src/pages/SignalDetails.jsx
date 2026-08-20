@@ -29,17 +29,15 @@ import {
   History as HistoryIcon,
   Warning as WarningIcon
 } from '@mui/icons-material';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useParams } from 'react-router-dom';
+import apiClient from '../api/client';
 import TrafficMap from '../components/TrafficMap';
 import SignalDetail from '../components/SignalDetail';
 
 const SignalDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [signal, setSignal] = useState(null);
   const [activeOccasions, setActiveOccasions] = useState([]);
-  const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -53,13 +51,11 @@ const SignalDetails = () => {
     try {
       // Fetch signal and occasions data in parallel
       const [signalRes, occasionsRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_API_URL}/api/signals/${id}`),
-        axios.get(`${import.meta.env.VITE_API_URL}/api/occasions`)
+        apiClient.get(`/api/signals/${id}`),
+        apiClient.get('/api/occasions')
       ]);
-      const routesRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/routes`);
       
       setSignal(signalRes.data);
-      setRoutes(routesRes.data);
       
       // Filter occasions that affect this signal
       const affecting = occasionsRes.data.filter(occasion => 
@@ -96,7 +92,7 @@ const SignalDetails = () => {
     setLoading(true);
     
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/signals/${id}/reset`);
+      await apiClient.post(`/api/signals/${id}/reset`);
       setResetSuccess(true);
       setResetDialogOpen(false);
       
@@ -123,7 +119,7 @@ const SignalDetails = () => {
       {/* Breadcrumb Navigation */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Dashboard
+          Command Center
         </Link>
         <Link to="/signals" style={{ textDecoration: 'none', color: 'inherit' }}>
           Signals
@@ -201,8 +197,6 @@ const SignalDetails = () => {
               <Box sx={{ height: '500px' }}>
                 <TrafficMap 
                   signals={[signal]} 
-                  routes={routes}
-                  occasions={activeOccasions}
                   selectedSignalId={signal.signalId}
                   onSignalSelect={() => {}}
                 />

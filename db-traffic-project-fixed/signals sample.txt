@@ -1,19 +1,16 @@
 [
   {
     "signalId": "LM_CHURCH_JN_01",
-    "intersectionName": "Little Mount on Anna Salai",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.224152, 13.01468]
-    },
+    "intersectionName": "Little Mount Church Junction",
+    "location": { "type": "Point", "coordinates": [80.2210, 13.0075] },
     "defaultTiming": {
       "cycleLength": 120,
       "phases": [
         { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "currentTiming": {
@@ -21,49 +18,69 @@
       "phases": [
         { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "status": "normal"
   },
   {
     "signalId": "LM_CHURCH_APP_01",
-    "intersectionName": "Anna Salai Approach Section",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.224441, 13.018727]
-    },
+    "intersectionName": "Little Mount Church Approach",
+    "location": { "type": "Point", "coordinates": [80.2195, 13.0060] },
     "defaultTiming": {
-      "cycleLength": 100,
+      "cycleLength": 120,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 15 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "currentTiming": {
-      "cycleLength": 100,
+      "cycleLength": 120,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 15 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "status": "normal"
   },
   {
-    "signalId": "LM_CHURCH_MID_01",
-    "intersectionName": "Anna Salai Mid Link",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.225345, 13.016083]
+    "signalId": "GUINDY_JN_01",
+    "intersectionName": "Guindy Junction",
+    "location": { "type": "Point", "coordinates": [80.2200, 13.0100] },
+    "defaultTiming": {
+      "cycleLength": 130,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 55 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 25 }
+      ]
     },
+    "currentTiming": {
+      "cycleLength": 130,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 55 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 25 }
+      ]
+    },
+    "status": "altered"
+  },
+  {
+    "signalId": "ADYAR_SIGNAL_01",
+    "intersectionName": "Adyar Signal",
+    "location": { "type": "Point", "coordinates": [80.2570, 13.0067] },
     "defaultTiming": {
       "cycleLength": 110,
       "phases": [
@@ -87,78 +104,43 @@
     "status": "normal"
   },
   {
-    "signalId": "LM_MARKET_01",
-    "intersectionName": "Anna Salai Near Saidapet",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.226342, 13.021983]
-    },
+    "signalId": "TNAGAR_JN_01",
+    "intersectionName": "T Nagar Junction",
+    "location": { "type": "Point", "coordinates": [80.2340, 13.0410] },
     "defaultTiming": {
-      "cycleLength": 100,
+      "cycleLength": 140,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 40 },
+        { "phaseId": "MainRd_Green", "duration": 60 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 45 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "currentTiming": {
-      "cycleLength": 100,
+      "cycleLength": 140,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 40 },
+        { "phaseId": "MainRd_Green", "duration": 60 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 45 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "status": "normal"
   },
   {
-    "signalId": "LM_MARKET_02",
-    "intersectionName": "Kathipara Interchange Approach",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.2027221, 13.0059939]
-    },
-    "defaultTiming": {
-      "cycleLength": 90,
-      "phases": [
-        { "phaseId": "MainRd_Green", "duration": 35 },
-        { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 25 },
-        { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
-      ]
-    },
-    "currentTiming": {
-      "cycleLength": 90,
-      "phases": [
-        { "phaseId": "MainRd_Green", "duration": 35 },
-        { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 25 },
-        { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
-      ]
-    },
-    "status": "normal"
-  },
-  {
-    "signalId": "LM_RING_01",
-    "intersectionName": "GST Road Approach",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.2064914, 13.0076347]
-    },
+    "signalId": "ANNA_NAGAR_JN_01",
+    "intersectionName": "Anna Nagar Junction",
+    "location": { "type": "Point", "coordinates": [80.2100, 13.0850] },
     "defaultTiming": {
       "cycleLength": 120,
       "phases": [
         { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "currentTiming": {
@@ -166,7 +148,33 @@
       "phases": [
         { "phaseId": "MainRd_Green", "duration": 50 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 40 },
+        { "phaseId": "SideRd_Green", "duration": 35 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 25 }
+      ]
+    },
+    "status": "offline"
+  },
+  {
+    "signalId": "MYLAPORE_JN_01",
+    "intersectionName": "Mylapore Junction",
+    "location": { "type": "Point", "coordinates": [80.2690, 13.0340] },
+    "defaultTiming": {
+      "cycleLength": 115,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 48 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 37 },
+        { "phaseId": "SideRd_Amber", "duration": 5 },
+        { "phaseId": "All_Red", "duration": 20 }
+      ]
+    },
+    "currentTiming": {
+      "cycleLength": 115,
+      "phases": [
+        { "phaseId": "MainRd_Green", "duration": 48 },
+        { "phaseId": "MainRd_Amber", "duration": 5 },
+        { "phaseId": "SideRd_Green", "duration": 37 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
         { "phaseId": "All_Red", "duration": 20 }
       ]
@@ -174,30 +182,27 @@
     "status": "normal"
   },
   {
-    "signalId": "LM_RING_02",
-    "intersectionName": "Alandur GST Link",
-    "location": {
-      "type": "Point",
-      "coordinates": [80.2082237, 13.0078871]
-    },
+    "signalId": "VELACHERY_JN_01",
+    "intersectionName": "Velachery Junction",
+    "location": { "type": "Point", "coordinates": [80.2200, 12.9820] },
     "defaultTiming": {
-      "cycleLength": 105,
+      "cycleLength": 125,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Green", "duration": 52 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 38 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "currentTiming": {
-      "cycleLength": 105,
+      "cycleLength": 125,
       "phases": [
-        { "phaseId": "MainRd_Green", "duration": 45 },
+        { "phaseId": "MainRd_Green", "duration": 52 },
         { "phaseId": "MainRd_Amber", "duration": 5 },
-        { "phaseId": "SideRd_Green", "duration": 30 },
+        { "phaseId": "SideRd_Green", "duration": 38 },
         { "phaseId": "SideRd_Amber", "duration": 5 },
-        { "phaseId": "All_Red", "duration": 20 }
+        { "phaseId": "All_Red", "duration": 25 }
       ]
     },
     "status": "normal"

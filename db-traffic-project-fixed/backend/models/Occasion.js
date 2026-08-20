@@ -70,13 +70,13 @@ const OccasionSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  createdBy: {
+  officerName: {
     type: String,
-    default: 'system'
+    required: false
   },
-  updatedBy: {
+  reason: {
     type: String,
-    default: 'system'
+    required: false
   }
 }, { timestamps: true });
 

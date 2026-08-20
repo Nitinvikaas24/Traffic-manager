@@ -1,432 +1,322 @@
-import React, { useState, useEffect } from 'react';
-import './OccasionForm.css';
+import React, { useEffect, useState } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  MenuItem,
+  Button,
+  Stack,
+  Grid,
+  IconButton,
+  Autocomplete,
+  Switch,
+  FormControlLabel,
+  Divider,
+} from '@mui/material';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { useAuth } from '../context/AuthContext';
 
-const OccasionForm = ({
-  signals,
-  initialData,
-  onSubmit,
-  isEditing = false
-}) => {
-  const [formData, setFormData] = useState({
-    occasionId: '',
-    name: '',
-    dates: [],
-    timeWindows: [
-      {
-        dayOfWeek: 0, // Sunday
-        startHour: 8,
-        endHour: 12
-      }
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const defaultFormData = () => ({
+  occasionId: '',
+  name: '',
+  dates: [],
+  timeWindows: [{ dayOfWeek: 0, startHour: 8, endHour: 12 }],
+  affectedSignalIds: [],
+  adjustmentRules: {
+    cycleLength: 120,
+    phases: [
+      { phaseId: 'MainRd_Green', duration: 60 },
+      { phaseId: 'MainRd_Amber', duration: 5 },
+      { phaseId: 'SideRd_Green', duration: 30 },
+      { phaseId: 'SideRd_Amber', duration: 5 },
+      { phaseId: 'All_Red', duration: 20 },
     ],
-    affectedSignalIds: [],
-    adjustmentRules: {
-      cycleLength: 120,
-      phases: [
-        { phaseId: 'MainRd_Green', duration: 60 },
-        { phaseId: 'MainRd_Amber', duration: 5 },
-        { phaseId: 'SideRd_Green', duration: 30 },
-        { phaseId: 'SideRd_Amber', duration: 5 },
-        { phaseId: 'All_Red', duration: 20 }
-      ]
-    },
-    isActive: true
-  });
-  
-  const [occasionError, setOccasionError] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [datesError, setDatesError] = useState('');
-  const [signalsError, setSignalsError] = useState('');
+  },
+  isActive: true,
+  reason: '',
+});
 
-  // Initialize form data if editing an existing occasion
+const OccasionForm = ({ signals, initialData, onSubmit, isEditing = false }) => {
+  const { user } = useAuth();
+  const [formData, setFormData] = useState(defaultFormData());
+  const [errors, setErrors] = useState({});
+
   useEffect(() => {
     if (isEditing && initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...defaultFormData(),
+        ...initialData,
+        dates: (initialData.dates || []).map((d) => new Date(d)),
+      });
     }
   }, [isEditing, initialData]);
 
-  // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+  const setField = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Clear error for the field
-    if (name === 'occasionId') setOccasionError('');
-    if (name === 'name') setNameError('');
+  const handleDateChange = (index, value) => {
+    const next = [...formData.dates];
+    next[index] = value;
+    setField('dates', next);
   };
 
-  // Handle dates changes
-  const handleDateChange = (e, index) => {
-    const newDates = [...formData.dates];
-    newDates[index] = new Date(e.target.value);
-    setFormData({
-      ...formData,
-      dates: newDates
-    });
-    setDatesError('');
+  const addDate = () => setField('dates', [...formData.dates, new Date()]);
+  const removeDate = (index) => setField('dates', formData.dates.filter((_, i) => i !== index));
+
+  const handleTimeWindowChange = (index, field, value) => {
+    const next = [...formData.timeWindows];
+    next[index] = { ...next[index], [field]: Number(value) };
+    setField('timeWindows', next);
   };
 
-  // Add a new date field
-  const addDateField = () => {
-    setFormData({
-      ...formData,
-      dates: [...formData.dates, new Date()]
-    });
+  const addTimeWindow = () =>
+    setField('timeWindows', [...formData.timeWindows, { dayOfWeek: 0, startHour: 8, endHour: 12 }]);
+  const removeTimeWindow = (index) => setField('timeWindows', formData.timeWindows.filter((_, i) => i !== index));
+
+  const handlePhaseChange = (index, field, value) => {
+    const next = [...formData.adjustmentRules.phases];
+    next[index] = { ...next[index], [field]: field === 'duration' ? Number(value) : value };
+    setField('adjustmentRules', { ...formData.adjustmentRules, phases: next });
   };
 
-  // Remove a date field
-  const removeDateField = (index) => {
-    const newDates = [...formData.dates];
-    newDates.splice(index, 1);
-    setFormData({
-      ...formData,
-      dates: newDates
-    });
-  };
+  const handleCycleLengthChange = (value) =>
+    setField('adjustmentRules', { ...formData.adjustmentRules, cycleLength: Number(value) });
 
-  // Handle time window changes
-  const handleTimeWindowChange = (index, field, e) => {
-    const value = field === 'dayOfWeek' ? parseInt(e.target.value, 10) : parseInt(e.target.value, 10);
-    const newTimeWindows = [...formData.timeWindows];
-    newTimeWindows[index] = {
-      ...newTimeWindows[index],
-      [field]: value
-    };
-    setFormData({
-      ...formData,
-      timeWindows: newTimeWindows
-    });
-  };
-
-  // Add a new time window
-  const addTimeWindow = () => {
-    setFormData({
-      ...formData,
-      timeWindows: [
-        ...formData.timeWindows,
-        {
-          dayOfWeek: 0,
-          startHour: 8,
-          endHour: 12
-        }
-      ]
-    });
-  };
-
-  // Remove a time window
-  const removeTimeWindow = (index) => {
-    const newTimeWindows = [...formData.timeWindows];
-    newTimeWindows.splice(index, 1);
-    setFormData({
-      ...formData,
-      timeWindows: newTimeWindows
-    });
-  };
-
-  // Handle affected signals change
-  const handleSignalChange = (e) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-    setFormData({
-      ...formData,
-      affectedSignalIds: selectedOptions
-    });
-    setSignalsError('');
-  };
-
-  // Handle phase change in adjustmentRules
-  const handlePhaseChange = (index, field, e) => {
-    const value = field === 'duration' ? parseInt(e.target.value, 10) : e.target.value;
-    const newPhases = [...formData.adjustmentRules.phases];
-    newPhases[index] = {
-      ...newPhases[index],
-      [field]: value
-    };
-    
-    setFormData({
-      ...formData,
-      adjustmentRules: {
-        ...formData.adjustmentRules,
-        phases: newPhases
-      }
-    });
-  };
-
-  // Handle cycle length change
-  const handleCycleLengthChange = (e) => {
-    const value = parseInt(e.target.value, 10);
-    setFormData({
-      ...formData,
-      adjustmentRules: {
-        ...formData.adjustmentRules,
-        cycleLength: value
-      }
-    });
-  };
-
-  // Handle active status change
-  const handleActiveChange = (e) => {
-    setFormData({
-      ...formData,
-      isActive: e.target.checked
-    });
-  };
-
-  // Validate form before submission
   const validateForm = () => {
-    let isValid = true;
-
-    if (!formData.occasionId.trim()) {
-      setOccasionError('Occasion ID is required');
-      isValid = false;
-    }
-
-    if (!formData.name.trim()) {
-      setNameError('Name is required');
-      isValid = false;
-    }
-
-    if (formData.dates.length === 0) {
-      setDatesError('At least one date is required');
-      isValid = false;
-    }
-
-    if (formData.affectedSignalIds.length === 0) {
-      setSignalsError('At least one signal must be selected');
-      isValid = false;
-    }
-
-    return isValid;
+    const next = {};
+    if (!formData.occasionId.trim()) next.occasionId = 'Occasion ID is required';
+    if (!formData.name.trim()) next.name = 'Name is required';
+    if (formData.dates.length === 0) next.dates = 'At least one date is required';
+    if (formData.affectedSignalIds.length === 0) next.affectedSignalIds = 'At least one signal must be selected';
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    if (validateForm()) {
-      onSubmit(formData);
-    }
+    if (validateForm()) onSubmit(formData);
   };
 
-  // Get day name from dayOfWeek number
-  const getDayName = (dayOfWeek) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek];
-  };
+  const selectedSignals = signals.filter((s) => formData.affectedSignalIds.includes(s.signalId));
 
   return (
-    <div className="form-container">
-      <h2 className="form-title">{isEditing ? 'Edit Occasion' : 'Create New Occasion'}</h2>
-      
-      <form onSubmit={handleSubmit}>
-        {/* Basic Information */}
-        <div className="form-section">
-          <h3 className="section-title">Basic Information</h3>
-          <div className="form-group">
-            <label htmlFor="occasionId">Occasion ID</label>
-            <input
-              type="text"
-              id="occasionId"
-              name="occasionId"
+    <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 } }}>
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        {isEditing ? 'Edit Occasion' : 'Create New Occasion'}
+      </Typography>
+
+      <Box component="form" onSubmit={handleSubmit}>
+        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+          Basic Information
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Occasion ID"
               value={formData.occasionId}
-              onChange={handleChange}
-              className={occasionError ? 'input-error' : ''}
+              onChange={(e) => setField('occasionId', e.target.value)}
+              error={Boolean(errors.occasionId)}
+              helperText={errors.occasionId}
               disabled={isEditing}
             />
-            {occasionError && <div className="error-text">{occasionError}</div>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="name">Name</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Name"
               value={formData.name}
-              onChange={handleChange}
-              className={nameError ? 'input-error' : ''}
+              onChange={(e) => setField('name', e.target.value)}
+              error={Boolean(errors.name)}
+              helperText={errors.name}
             />
-            {nameError && <div className="error-text">{nameError}</div>}
-          </div>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Created By"
+              value={user ? `${user.username} (${user.role})` : ''}
+              disabled
+              helperText="Recorded automatically from your login — not editable"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Reason"
+              value={formData.reason}
+              onChange={(e) => setField('reason', e.target.value)}
+            />
+          </Grid>
 
-          <div className="form-group">
-            <label>Dates</label>
-            {datesError && <div className="error-text">{datesError}</div>}
-            <div className="dates-container">
+          <Grid item xs={12}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Dates
+            </Typography>
+            {errors.dates && (
+              <Typography variant="caption" color="error">
+                {errors.dates}
+              </Typography>
+            )}
+            <Stack spacing={1}>
               {formData.dates.map((date, index) => (
-                <div key={index} className="date-item">
-                  <input
-                    type="date"
-                    value={date ? new Date(date).toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange(e, index)}
+                <Stack direction="row" spacing={1} alignItems="center" key={index}>
+                  <DatePicker
+                    value={date}
+                    onChange={(value) => handleDateChange(index, value)}
+                    slotProps={{ textField: { size: 'small' } }}
                   />
-                  <button 
-                    type="button" 
-                    className="icon-button remove-button"
-                    onClick={() => removeDateField(index)}
-                  >
-                    ✕
-                  </button>
-                </div>
+                  <IconButton onClick={() => removeDate(index)} size="small">
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
               ))}
-              <button 
-                type="button" 
-                className="add-button"
-                onClick={addDateField}
-              >
-                + Add Date
-              </button>
-            </div>
-          </div>
+              <Button startIcon={<AddIcon />} onClick={addDate} size="small" sx={{ alignSelf: 'flex-start' }}>
+                Add Date
+              </Button>
+            </Stack>
+          </Grid>
 
-          <div className="form-group">
-            <label>Affected Signals</label>
-            {signalsError && <div className="error-text">{signalsError}</div>}
-            <select 
-              multiple 
-              className="multi-select"
-              onChange={handleSignalChange}
-              value={formData.affectedSignalIds}
-            >
-              {signals && signals.map((signal) => (
-                <option key={signal.signalId} value={signal.signalId}>
-                  {signal.intersectionName} ({signal.signalId})
-                </option>
-              ))}
-            </select>
-            <div className="helper-text">Hold Ctrl (or Cmd) to select multiple signals</div>
-          </div>
-
-          <div className="form-group active-switch">
-            <label htmlFor="isActive">Active</label>
-            <input
-              type="checkbox"
-              id="isActive"
-              name="isActive"
-              checked={formData.isActive}
-              onChange={handleActiveChange}
+          <Grid item xs={12}>
+            <Autocomplete
+              multiple
+              options={signals}
+              getOptionLabel={(s) => `${s.intersectionName} (${s.signalId})`}
+              value={selectedSignals}
+              isOptionEqualToValue={(option, value) => option.signalId === value.signalId}
+              onChange={(_, value) => setField('affectedSignalIds', value.map((s) => s.signalId))}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Affected Signals"
+                  error={Boolean(errors.affectedSignalIds)}
+                  helperText={errors.affectedSignalIds}
+                />
+              )}
             />
-          </div>
-        </div>
+          </Grid>
 
-        {/* Time Windows */}
-        <div className="form-section">
-          <h3 className="section-title">Time Windows</h3>
-          {formData.timeWindows.map((timeWindow, index) => (
-            <div key={index} className="time-window-item">
-              <div className="time-window-header">
-                <h4>Time Window {index + 1}</h4>
-                {formData.timeWindows.length > 1 && (
-                  <button 
-                    type="button" 
-                    className="icon-button remove-button"
-                    onClick={() => removeTimeWindow(index)}
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={<Switch checked={formData.isActive} onChange={(e) => setField('isActive', e.target.checked)} />}
+              label="Active"
+            />
+          </Grid>
+        </Grid>
+
+        <Divider sx={{ mb: 3 }} />
+
+        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+          Time Windows
+        </Typography>
+        <Stack spacing={2} sx={{ mb: 3 }}>
+          {formData.timeWindows.map((window, index) => (
+            <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Day of Week"
+                    value={window.dayOfWeek}
+                    onChange={(e) => handleTimeWindowChange(index, 'dayOfWeek', e.target.value)}
                   >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <div className="time-window-content">
-                <div className="form-group">
-                  <label>Day of Week</label>
-                  <select
-                    value={timeWindow.dayOfWeek}
-                    onChange={(e) => handleTimeWindowChange(index, 'dayOfWeek', e)}
-                  >
-                    {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-                      <option key={day} value={day}>
-                        {getDayName(day)}
-                      </option>
+                    {DAY_NAMES.map((day, dayIndex) => (
+                      <MenuItem key={day} value={dayIndex}>
+                        {day}
+                      </MenuItem>
                     ))}
-                  </select>
-                </div>
-                <div className="time-group">
-                  <div className="form-group">
-                    <label>Start Hour</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={timeWindow.startHour}
-                      onChange={(e) => handleTimeWindowChange(index, 'startHour', e)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>End Hour</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={timeWindow.endHour}
-                      onChange={(e) => handleTimeWindowChange(index, 'endHour', e)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+                  </TextField>
+                </Grid>
+                <Grid item xs={5} sm={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label="Start Hour"
+                    inputProps={{ min: 0, max: 23 }}
+                    value={window.startHour}
+                    onChange={(e) => handleTimeWindowChange(index, 'startHour', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={5} sm={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label="End Hour"
+                    inputProps={{ min: 0, max: 23 }}
+                    value={window.endHour}
+                    onChange={(e) => handleTimeWindowChange(index, 'endHour', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={2} sm={2}>
+                  {formData.timeWindows.length > 1 && (
+                    <IconButton onClick={() => removeTimeWindow(index)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Grid>
+              </Grid>
+            </Paper>
           ))}
-          <button 
-            type="button" 
-            className="add-button"
-            onClick={addTimeWindow}
-          >
-            + Add Time Window
-          </button>
-        </div>
+          <Button startIcon={<AddIcon />} onClick={addTimeWindow} size="small" sx={{ alignSelf: 'flex-start' }}>
+            Add Time Window
+          </Button>
+        </Stack>
 
-        {/* Signal Adjustment Rules */}
-        <div className="form-section">
-          <h3 className="section-title">Signal Adjustment Rules</h3>
-          <div className="form-group">
-            <label htmlFor="cycleLength">Cycle Length (seconds)</label>
-            <input
+        <Divider sx={{ mb: 3 }} />
+
+        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+          Signal Adjustment Rules
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              fullWidth
               type="number"
-              id="cycleLength"
-              min="60"
-              max="300"
+              label="Cycle Length (seconds)"
+              inputProps={{ min: 60, max: 300 }}
               value={formData.adjustmentRules.cycleLength}
-              onChange={handleCycleLengthChange}
+              onChange={(e) => handleCycleLengthChange(e.target.value)}
             />
-          </div>
+          </Grid>
+        </Grid>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {formData.adjustmentRules.phases.map((phase, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <Stack spacing={1}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Phase"
+                  value={phase.phaseId}
+                  onChange={(e) => handlePhaseChange(index, 'phaseId', e.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Duration (seconds)"
+                  inputProps={{ min: 1, max: 120 }}
+                  value={phase.duration}
+                  onChange={(e) => handlePhaseChange(index, 'duration', e.target.value)}
+                />
+              </Stack>
+            </Grid>
+          ))}
+        </Grid>
 
-          <div className="phases-section">
-            <h4>Phase Durations</h4>
-            <div className="phases-container">
-              {formData.adjustmentRules.phases.map((phase, index) => (
-                <div key={index} className="phase-item">
-                  <div className="form-group">
-                    <label>Phase</label>
-                    <input
-                      type="text"
-                      value={phase.phaseId}
-                      onChange={(e) => handlePhaseChange(index, 'phaseId', e)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Duration (seconds)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="120"
-                      value={phase.duration}
-                      onChange={(e) => handlePhaseChange(index, 'duration', e)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button type="submit" className="submit-button">
-            {isEditing ? 'Update Occasion' : 'Create Occasion'}
-          </button>
-        </div>
-      </form>
-    </div>
+        <Button type="submit" variant="contained" size="large">
+          {isEditing ? 'Update Occasion' : 'Create Occasion'}
+        </Button>
+      </Box>
+    </Paper>
   );
 };
 
-export default OccasionForm; 
+export default OccasionForm;

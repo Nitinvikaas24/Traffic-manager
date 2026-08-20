@@ -1,94 +1,57 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import './Navbar.css'; // We'll create this CSS file
+import React from 'react';
+import { AppBar, Toolbar, Typography, Button, Stack } from '@mui/material';
+import TrafficIcon from '@mui/icons-material/Traffic';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useAuth();
-
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-  };
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const menuItems = [
-    { text: 'Dashboard', path: '/', icon: '📊' },
-    { text: 'Signals', path: '/signals', icon: '🚦' },
-    { text: 'Occasions', path: '/occasions', icon: '📅' }
+    { text: 'Command Center', path: '/' },
+    { text: 'Signals', path: '/signals' },
+    { text: 'Occasions', path: '/occasions' },
   ];
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
-    <nav className="navbar">
-      <div className="navbar-container">
-        <div className="navbar-logo">
-          <button className="menu-button" onClick={toggleMenu}>
-            ☰
-          </button>
-          <Link to="/" className="logo-link">
-            🚦 Traffic Signal Management
-          </Link>
-        </div>
-        
-        <div className="desktop-menu">
+    <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Toolbar>
+        <TrafficIcon sx={{ mr: 1.5 }} />
+        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: 18 }}>
+          Traffic Signal Management
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
           {menuItems.map((item) => (
-            <Link 
+            <Button
               key={item.text}
+              component={Link}
               to={item.path}
-              className={`nav-link ${location.pathname === item.path ? 'active' : ''}`}
+              color={location.pathname === item.path ? 'primary' : 'inherit'}
+              variant={location.pathname === item.path ? 'outlined' : 'text'}
             >
               {item.text}
-            </Link>
+            </Button>
           ))}
-          {isAuthenticated ? (
-            <button className="nav-link nav-action" onClick={logout} type="button">
-              Logout{user?.fullName ? ` (${user.fullName})` : ''}
-            </button>
-          ) : (
-            <Link to="/auth" className={`nav-link ${location.pathname === '/auth' ? 'active' : ''}`}>
-              Officer Login
-            </Link>
+          {user && (
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+              {user.username}
+            </Typography>
           )}
-        </div>
-
-        {menuOpen && (
-          <div className="mobile-menu">
-            <div className="drawer">
-              <div className="drawer-content">
-                {menuItems.map((item) => (
-                  <Link 
-                    key={item.text}
-                    to={item.path}
-                    className={`drawer-item ${location.pathname === item.path ? 'active' : ''}`}
-                    onClick={toggleMenu}
-                  >
-                    <span className="item-icon">{item.icon}</span>
-                    <span className="item-text">{item.text}</span>
-                  </Link>
-                ))}
-                {isAuthenticated ? (
-                  <button className="drawer-item drawer-button" onClick={logout} type="button">
-                    <span className="item-icon">🔒</span>
-                    <span className="item-text">Logout</span>
-                  </button>
-                ) : (
-                  <Link 
-                    to="/auth"
-                    className={`drawer-item ${location.pathname === '/auth' ? 'active' : ''}`}
-                    onClick={toggleMenu}
-                  >
-                    <span className="item-icon">🔑</span>
-                    <span className="item-text">Officer Login</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-            <div className="drawer-backdrop" onClick={toggleMenu}></div>
-          </div>
-        )}
-      </div>
-    </nav>
+          <Button size="small" color="inherit" startIcon={<LogoutIcon />} onClick={handleLogout}>
+            Logout
+          </Button>
+        </Stack>
+      </Toolbar>
+    </AppBar>
   );
 };
 
-export default Navbar; 
+export default Navbar;

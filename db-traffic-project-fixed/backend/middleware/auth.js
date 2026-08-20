@@ -1,31 +1,34 @@
 const jwt = require('jsonwebtoken');
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+// Verifies the Authorization: Bearer <token> header and attaches the decoded
+// identity to req.user. Every mutating route derives officer attribution from
+// req.user, never from the request body, so a caller can't claim to be
+// someone else in the audit log.
+function authenticate(req, res, next) {
+  const header = req.headers.authorization || '';
+  const [scheme, token] = header.split(' ');
 
-  if (!token) {
-    return res.status(401).json({ message: 'Missing access token' });
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ message: 'Missing or malformed Authorization header' });
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'traffic-signal-secret');
-    req.user = payload;
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: payload.id, username: payload.username, role: payload.role, badgeId: payload.badgeId };
     next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid or expired access token' });
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
-};
+}
 
-const requireOfficer = (req, res, next) => {
-  if (!req.user || (req.user.role !== 'officer' && req.user.role !== 'admin')) {
-    return res.status(403).json({ message: 'Officer access required' });
-  }
+// requireRole('admin') -> only admins pass; requireRole('admin', 'officer') -> either.
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Insufficient permissions for this action' });
+    }
+    next();
+  };
+}
 
-  next();
-};
-
-module.exports = {
-  authenticateToken,
-  requireOfficer
-};
+module.exports = { authenticate, requireRole };

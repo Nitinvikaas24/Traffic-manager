@@ -10,7 +10,7 @@ import {
   Breadcrumbs
 } from '@mui/material';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/client';
 import OccasionForm from '../components/OccasionForm';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 
@@ -30,8 +30,8 @@ const EditOccasion = () => {
       try {
         // Fetch signals and occasion data in parallel
         const [signalsRes, occasionRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL}/api/signals`),
-          axios.get(`${import.meta.env.VITE_API_URL}/api/occasions/${id}`)
+          apiClient.get('/api/signals'),
+          apiClient.get(`/api/occasions/${id}`)
         ]);
         
         setSignals(signalsRes.data);
@@ -53,7 +53,7 @@ const EditOccasion = () => {
     setError('');
     
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL}/api/occasions/${id}`, formData);
+      await apiClient.put(`/api/occasions/${id}`, formData);
       setSuccess(true);
       
       // Navigate back to occasions list after a short delay
@@ -72,7 +72,7 @@ const EditOccasion = () => {
       {/* Breadcrumb Navigation */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Dashboard
+          Command Center
         </Link>
         <Link to="/occasions" style={{ textDecoration: 'none', color: 'inherit' }}>
           Occasions

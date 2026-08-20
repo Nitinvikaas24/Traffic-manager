@@ -1,92 +1,47 @@
 const express = require('express');
+const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const Officer = require('../models/Officer');
-const { authenticateToken } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
+const User = require('../models/User');
+const { authenticate } = require('../middleware/auth');
 
-const router = express.Router();
-
-const signToken = (officer) => jwt.sign(
-  {
-    id: officer._id.toString(),
-    username: officer.username,
-    fullName: officer.fullName,
-    role: officer.role
-  },
-  process.env.JWT_SECRET || 'traffic-signal-secret',
-  { expiresIn: '8h' }
-);
-
-router.post('/register', async (req, res) => {
-  try {
-    const { username, password, fullName, role } = req.body;
-
-    if (!username || !password || !fullName) {
-      return res.status(400).json({ message: 'username, password, and fullName are required' });
-    }
-
-    const existingOfficer = await Officer.findOne({ username });
-    if (existingOfficer) {
-      return res.status(409).json({ message: 'Officer username already exists' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const officer = await Officer.create({
-      username,
-      passwordHash,
-      fullName,
-      role: role === 'admin' ? 'admin' : 'officer'
-    });
-
-    const token = signToken(officer);
-    res.status(201).json({
-      token,
-      officer: {
-        id: officer._id,
-        username: officer.username,
-        fullName: officer.fullName,
-        role: officer.role
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
+// Stricter limiter on login specifically, to slow down credential-stuffing/brute force.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Try again later.' },
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-
     if (!username || !password) {
       return res.status(400).json({ message: 'username and password are required' });
     }
 
-    const officer = await Officer.findOne({ username });
-    if (!officer) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+    const user = await User.findOne({ username: username.toLowerCase().trim() });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, officer.passwordHash);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordMatches) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = signToken(officer);
-    res.json({
-      token,
-      officer: {
-        id: officer._id,
-        username: officer.username,
-        fullName: officer.fullName,
-        role: officer.role
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const payload = { id: user._id.toString(), username: user.username, role: user.role, badgeId: user.badgeId };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+
+    res.json({ token, user: payload });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 

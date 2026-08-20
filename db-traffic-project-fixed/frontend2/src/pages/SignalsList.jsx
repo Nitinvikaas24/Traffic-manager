@@ -1,11 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import {
+  Container,
+  Grid,
+  Paper,
+  Typography,
+  Box,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Chip,
+  CircularProgress,
+  TextField,
+  InputAdornment,
+  MenuItem,
+} from '@mui/material';
+import { Search as SearchIcon, Refresh as RefreshIcon, Add as AddIcon } from '@mui/icons-material';
+import apiClient from '../api/client';
 import TrafficMap from '../components/TrafficMap';
 import SignalDetail from '../components/SignalDetail';
-import './SignalsList.css';
+import NewSignalDialog from '../components/ControlPanel/NewSignalDialog';
+import { useAuth } from '../context/AuthContext';
+
+const STATUS_COLOR = {
+  normal: 'success',
+  altered: 'warning',
+  overridden: 'error',
+  blocked: 'error',
+  offline: 'default',
+  maintenance: 'default',
+};
 
 const SignalsList = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [signals, setSignals] = useState([]);
   const [filteredSignals, setFilteredSignals] = useState([]);
@@ -14,255 +45,201 @@ const SignalsList = () => {
   const [selectedSignalId, setSelectedSignalId] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [newSignalDialogOpen, setNewSignalDialogOpen] = useState(false);
 
-  // Fetch signals data
   const fetchSignals = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/signals`);
+      const response = await apiClient.get('/api/signals');
       setSignals(response.data);
       setFilteredSignals(response.data);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching signals:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
     fetchSignals();
   }, []);
 
-  // Filter signals based on search term and status filter
   useEffect(() => {
     if (!signals.length) return;
-
     let filtered = [...signals];
-    
-    // Apply search filter
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        signal => 
-          signal.signalId.toLowerCase().includes(term) ||
-          signal.intersectionName.toLowerCase().includes(term)
+        (signal) =>
+          signal.signalId.toLowerCase().includes(term) || signal.intersectionName.toLowerCase().includes(term)
       );
     }
-    
-    // Apply status filter
+
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(signal => signal.status === statusFilter);
+      filtered = filtered.filter((signal) => signal.status === statusFilter);
     }
-    
+
     setFilteredSignals(filtered);
-    setPage(0); // Reset to first page when filters change
+    setPage(0);
   }, [searchTerm, statusFilter, signals]);
 
-  // Handle search input change
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Handle status filter change
-  const handleStatusFilterChange = (e) => {
-    setStatusFilter(e.target.value);
-  };
-
-  // Handle pagination change
-  const handleChangePage = (newPage) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Handle signal selection (from table or map)
   const handleSignalSelect = (signalId) => {
     setSelectedSignalId(signalId);
   };
 
-  // Get selected signal object
-  const selectedSignal = signals.find(signal => signal?.signalId === selectedSignalId);
+  const selectedSignal = signals.find((signal) => signal.signalId === selectedSignalId);
 
-  // Format last updated time
-  const formatLastUpdated = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  const formatLastUpdated = (dateString) => new Date(dateString).toLocaleString();
 
-  // Get status class for styling
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'normal':
-        return 'status-success';
-      case 'altered':
-        return 'status-warning';
-      default:
-        return 'status-error';
-    }
-  };
-
-  // Calculate pagination
-  const indexOfLastItem = (page + 1) * rowsPerPage;
-  const indexOfFirstItem = indexOfLastItem - rowsPerPage;
-  const currentItems = filteredSignals.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredSignals.length / rowsPerPage);
+  const currentItems = filteredSignals.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <h1 className="page-title">Traffic Signals</h1>
-        <button 
-          className="btn"
-          onClick={fetchSignals}
-          disabled={loading}
-        >
-          <span className="btn-icon">↻</span> Refresh
-        </button>
-      </div>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4">Traffic Signals</Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {user?.role === 'admin' && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNewSignalDialogOpen(true)}>
+              New Signal
+            </Button>
+          )}
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchSignals} disabled={loading}>
+            Refresh
+          </Button>
+        </Box>
+      </Box>
 
-      {/* Filters and Search */}
-      <div className="filter-panel">
-        <div className="filter-grid">
-          <div className="search-container">
-            <span className="search-icon">🔍</span>
-            <input
-              className="search-input"
-              type="text"
+      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={8}>
+            <TextField
+              fullWidth
               placeholder="Search by Signal ID or Intersection Name"
               value={searchTerm}
-              onChange={handleSearchChange}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
             />
-          </div>
-          
-          <div className="filter-container">
-            <label htmlFor="status-filter">Status</label>
-            <div className="select-wrapper">
-              <span className="filter-icon">⚙️</span>
-              <select
-                id="status-filter"
-                className="filter-select"
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-              >
-                <option value="all">All Status</option>
-                <option value="normal">Normal</option>
-                <option value="altered">Altered</option>
-                <option value="offline">Offline</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              select
+              fullWidth
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="normal">Normal</MenuItem>
+              <MenuItem value="altered">Altered</MenuItem>
+              <MenuItem value="overridden">Overridden</MenuItem>
+              <MenuItem value="blocked">Blocked</MenuItem>
+              <MenuItem value="offline">Offline</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+            </TextField>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {loading ? (
-        <div className="loading-container">
-          <div className="loader"></div>
-        </div>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
       ) : (
-        <div className="signals-grid">
-          {/* Signals Table */}
-          <div className="signals-table-container">
-            <div className="table-wrapper">
-              <table className="signals-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Intersection Name</th>
-                    <th>Status</th>
-                    <th>Cycle Length</th>
-                    <th>Last Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentItems.map((signal) => (
-                    <tr 
-                      key={signal.signalId}
-                      className={selectedSignalId === signal.signalId ? 'selected-row' : ''}
-                      onClick={() => handleSignalSelect(signal.signalId)}
-                    >
-                      <td>{signal.signalId}</td>
-                      <td>{signal.intersectionName}</td>
-                      <td>
-                        <span className={`status-badge ${getStatusClass(signal.status)}`}>
-                          {signal.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>{signal.currentTiming?.cycleLength ?? 'N/A'}s</td>
-                      <td>{formatLastUpdated(signal.lastUpdated)}</td>
-                    </tr>
-                  ))}
-                  
-                  {filteredSignals.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="empty-message">
-                        No signals found matching the current filters
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            
-            <div className="pagination">
-              <div className="rows-per-page">
-                <label>Rows per page:</label>
-                <select
-                  value={rowsPerPage}
-                  onChange={handleChangeRowsPerPage}
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                </select>
-              </div>
-              
-              <div className="page-controls">
-                <span>
-                  {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredSignals.length)} of {filteredSignals.length}
-                </span>
-                <button
-                  className="page-btn"
-                  onClick={() => handleChangePage(page - 1)}
-                  disabled={page === 0}
-                >
-                  ◀
-                </button>
-                <button
-                  className="page-btn"
-                  onClick={() => handleChangePage(page + 1)}
-                  disabled={page >= totalPages - 1}
-                >
-                  ▶
-                </button>
-              </div>
-            </div>
-          </div>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={7}>
+            <Paper elevation={3}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Intersection Name</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Cycle Length</TableCell>
+                      <TableCell>Last Updated</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {currentItems.map((signal) => (
+                      <TableRow
+                        key={signal.signalId}
+                        hover
+                        selected={selectedSignalId === signal.signalId}
+                        onClick={() => handleSignalSelect(signal.signalId)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        <TableCell>{signal.signalId}</TableCell>
+                        <TableCell>{signal.intersectionName}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={signal.status.toUpperCase()}
+                            color={STATUS_COLOR[signal.status] || 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>{signal.currentTiming.cycleLength}s</TableCell>
+                        <TableCell>{formatLastUpdated(signal.lastUpdated)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredSignals.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          No signals found matching the current filters
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={filteredSignals.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                onRowsPerPageChange={(e) => {
+                  setRowsPerPage(parseInt(e.target.value, 10));
+                  setPage(0);
+                }}
+              />
+            </Paper>
+          </Grid>
 
-          {/* Map */}
-          <div className="map-section">
-            <TrafficMap 
-              signals={signals || []}
-              selectedSignalId={selectedSignalId}
-              onSignalSelect={handleSignalSelect}
-            />
-          </div>
-        </div>
+          <Grid item xs={12} md={5}>
+            <Paper elevation={3} sx={{ height: 400, overflow: 'hidden', mb: 3 }}>
+              <TrafficMap signals={signals} selectedSignalId={selectedSignalId} onSignalSelect={handleSignalSelect} />
+            </Paper>
+          </Grid>
+        </Grid>
       )}
 
-      {/* Selected Signal Details */}
       {selectedSignal && (
-        <div className="signal-details-container">
-          <h2 className="section-title">Signal Details</h2>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Signal Details
+          </Typography>
           <SignalDetail signal={selectedSignal} />
-        </div>
+        </Box>
       )}
-    </div>
+
+      {user?.role === 'admin' && (
+        <NewSignalDialog
+          open={newSignalDialogOpen}
+          initialLocation={null}
+          onClose={() => setNewSignalDialogOpen(false)}
+          onCreated={() => fetchSignals()}
+        />
+      )}
+    </Container>
   );
 };
 
-export default SignalsList; 
+export default SignalsList;

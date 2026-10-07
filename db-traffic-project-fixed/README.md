@@ -6,7 +6,7 @@ A real-time command-center application for traffic police to monitor, control, a
 
 ## Try the Demo
 
-No sign-up or credentials needed — open the live demo and click **Enter Live Demo**. You're signed in as a demo *officer* (short-lived session; admin-only features such as creating signals are not exposed). Demo data is shared between visitors and may be reset.
+Open the live demo and sign in with username `officer1` and password `ChangeMe123!` (also shown on the login page). You're signed in as a demo *officer* (short-lived session; admin-only features such as creating signals are not exposed). Demo data is shared between visitors and may be reset.
 
 ## How to Use
 

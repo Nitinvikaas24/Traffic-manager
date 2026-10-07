@@ -8,6 +8,9 @@ import { tamilFontFamily } from '../theme';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
+const DEMO_USERNAME = 'officer1';
+const DEMO_PASSWORD = 'ChangeMe123!';
+
 const titleWords = ['TRAFFIC', 'SIGNAL', 'COMMAND', 'CENTER'];
 
 const wordContainer = {
@@ -140,6 +143,28 @@ const Login = () => {
               {error}
             </Alert>
           )}
+
+          <Alert severity="info" icon={false} sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Demo access — copy &amp; paste
+            </Typography>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+              Username: {DEMO_USERNAME}
+            </Typography>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+              Password: {DEMO_PASSWORD}
+            </Typography>
+            <Button
+              size="small"
+              sx={{ mt: 1, px: 0 }}
+              onClick={() => {
+                setUsername(DEMO_USERNAME);
+                setPassword(DEMO_PASSWORD);
+              }}
+            >
+              Fill in for me
+            </Button>
+          </Alert>
 
           <Box component="form" onSubmit={handleSubmit}>
             <Stack spacing={2}>

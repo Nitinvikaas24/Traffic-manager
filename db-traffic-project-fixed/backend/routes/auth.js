@@ -15,6 +15,34 @@ const loginLimiter = rateLimit({
   message: { message: 'Too many login attempts. Try again later.' },
 });
 
+// Public demo access: when DEMO_MODE=true, anyone can obtain a short-lived
+// officer-role session without credentials. Never issues admin, and is a 404
+// when disabled so it doesn't exist on a real deployment.
+const demoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many demo sessions. Try again later.' },
+});
+
+router.post('/demo', demoLimiter, async (req, res) => {
+  if (process.env.DEMO_MODE !== 'true') {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  try {
+    const user = await User.findOne({ username: (process.env.DEMO_USERNAME || 'officer1').toLowerCase() });
+    if (!user || user.role !== 'officer') {
+      return res.status(503).json({ message: 'Demo account is not available' });
+    }
+    const payload = { id: user._id.toString(), username: user.username, role: user.role, badgeId: user.badgeId };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token, user: payload });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;

@@ -6,6 +6,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { tamilFontFamily } from '../theme';
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
 const titleWords = ['TRAFFIC', 'SIGNAL', 'COMMAND', 'CENTER'];
 
 const wordContainer = {
@@ -19,7 +21,7 @@ const wordItem = {
 };
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, demoLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [username, setUsername] = useState('');
@@ -38,6 +40,19 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDemo = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      await demoLogin();
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not start the demo');
     } finally {
       setSubmitting(false);
     }
@@ -102,8 +117,23 @@ const Login = () => {
         <Paper elevation={4} sx={{ p: 4, width: 360 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <TrafficIcon fontSize="large" color="primary" />
-            <Typography variant="h6">Sign In</Typography>
+            <Typography variant="h6">{DEMO_MODE ? 'Live Demo' : 'Sign In'}</Typography>
           </Box>
+
+          {DEMO_MODE && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Explore the full command center as a demo officer — no account needed. Data is shared and
+                resets periodically.
+              </Typography>
+              <Button fullWidth variant="contained" size="large" onClick={handleDemo} disabled={submitting} sx={{ mb: 3 }}>
+                {submitting ? 'Starting…' : 'Enter Live Demo'}
+              </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Staff sign-in
+              </Typography>
+            </>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>

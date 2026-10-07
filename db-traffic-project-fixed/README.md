@@ -4,20 +4,13 @@ A real-time command-center application for traffic police to monitor, control, a
 
 **Live demo:** https://traffic-manager-pi.vercel.app
 
-## Demo Login (for recruiters / interviewers)
+## Try the Demo
 
-No sign-up needed — use either of these on the live demo:
-
-| Role    | Username   | Password       |
-|---------|------------|----------------|
-| Officer | `officer1` | `ChangeMe123!` |
-| Admin   | `admin`    | `ChangeMe123!` |
-
-The **admin** account additionally unlocks signal record management (creating new signals) — everything else (overrides, event mode, scheduling, routing) is available to both roles.
+No sign-up or credentials needed — open the live demo and click **Enter Live Demo**. You're signed in as a demo *officer* (short-lived session; admin-only features such as creating signals are not exposed). Demo data is shared between visitors and may be reset.
 
 ## How to Use
 
-1. Open the live demo and sign in with either demo account above.
+1. Open the live demo and click **Enter Live Demo**.
 2. **Command Center** (`/`) is the main view: a live map of ~370 real Chennai traffic signals, a searchable signal list, and a right-hand panel for routing and scheduling.
 3. **Click any signal** on the map or in the list to open its detail drawer — view/edit its phase timing, force a manual override (with a reason), or review its audit log.
 4. **Routing Engine** (right panel, "Routes" tab): pick a source and destination signal, click *Find Routes* — the engine builds a live road graph from OpenStreetMap and returns three ranked routes (fastest/alternate/fallback) with live ETAs. Editing a signal that sits on an active route re-highlights the affected route(s) with the updated ETA.
@@ -58,6 +51,7 @@ cd backend
 cp .env.example .env        # fill in MONGODB_URI and a real JWT_SECRET
 npm install
 npm run create-users        # seeds admin/officer1 demo accounts
+                            # set DEMO_MODE=true in .env to enable the one-click demo endpoint
 npm run import-chennai-signals   # optional: seed real Chennai signal data
 npm run dev                 # http://localhost:5000
 

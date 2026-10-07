@@ -29,10 +29,17 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const demoLogin = useCallback(async () => {
+    const { data } = await apiClient.post('/api/auth/demo');
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, demoLogin, logout }}>{children}</AuthContext.Provider>;
 }

@@ -34,6 +34,10 @@ const app = express();
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
+// Behind Render's proxy: trust one hop so rate limits key on the real client IP
+// (otherwise every visitor shares one bucket and the demo locks everyone out).
+app.set('trust proxy', 1);
+
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim());
 app.use(cors({ origin: allowedOrigins }));
 

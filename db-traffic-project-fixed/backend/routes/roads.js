@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 
@@ -13,6 +15,15 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour, to respect Overpass rate limits
 // overpass-api.de's Apache config 406s Node's default fetch User-Agent
 // ("node") — Overpass's own usage policy also asks for an identifying UA.
 const OVERPASS_USER_AGENT = 'traffic-signal-management-app/1.0';
+
+// Pre-generated Chennai road network (drivable highways only, gzipped JSON in
+// Overpass format). Public Overpass servers are slow/blocked from some hosts
+// and a city-wide live query is huge, so requests inside this area are served
+// from the snapshot. Anything outside it falls through to a live query.
+const SNAPSHOT_PATH = path.join(__dirname, '..', 'data', 'chennai-roads.json.gz');
+const SNAPSHOT_BBOX = [12.84, 80.12, 13.15, 80.31]; // minLat, minLng, maxLat, maxLng
+const insideSnapshot = ([minLat, minLng, maxLat, maxLng]) =>
+  minLat >= SNAPSHOT_BBOX[0] && minLng >= SNAPSHOT_BBOX[1] && maxLat <= SNAPSHOT_BBOX[2] && maxLng <= SNAPSHOT_BBOX[3];
 
 // In-memory cache: bbox key -> { data, fetchedAt }
 const cache = new Map();
@@ -32,6 +43,11 @@ router.get('/', async (req, res) => {
     const parts = bbox.split(',').map(Number);
     if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
       return res.status(400).json({ message: 'bbox must be 4 comma-separated numbers: minLat,minLng,maxLat,maxLng' });
+    }
+
+    if (insideSnapshot(parts) && fs.existsSync(SNAPSHOT_PATH)) {
+      res.set({ 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', 'Cache-Control': 'public, max-age=86400' });
+      return fs.createReadStream(SNAPSHOT_PATH).pipe(res);
     }
 
     const cacheKey = roundBbox(parts);

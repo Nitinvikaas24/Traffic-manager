@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+// Public Overpass mirrors, tried in order. Hosted environments (e.g. Render)
+// sometimes can't reach or get throttled by a single instance.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+const OVERPASS_TIMEOUT_MS = 40 * 1000;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour, to respect Overpass rate limits
 // overpass-api.de's Apache config 406s Node's default fetch User-Agent
 // ("node") — Overpass's own usage policy also asks for an identifying UA.
@@ -43,20 +50,30 @@ router.get('/', async (req, res) => {
       out body;
     `;
 
-    const response = await fetch(OVERPASS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain', 'User-Agent': OVERPASS_USER_AGENT },
-      body: query,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(502).json({ message: 'Overpass API request failed', detail: text.slice(0, 500) });
+    const failures = [];
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain', 'User-Agent': OVERPASS_USER_AGENT },
+          body: query,
+          signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          failures.push(`${endpoint}: HTTP ${response.status} ${text.slice(0, 120)}`);
+          continue;
+        }
+        const data = await response.json();
+        cache.set(cacheKey, { data, fetchedAt: Date.now() });
+        return res.json(data);
+      } catch (err) {
+        failures.push(`${endpoint}: ${err.message}${err.cause ? ` (${err.cause.code || err.cause.message})` : ''}`);
+      }
     }
 
-    const data = await response.json();
-    cache.set(cacheKey, { data, fetchedAt: Date.now() });
-    res.json(data);
+    console.error('Overpass request failed on all endpoints:', failures);
+    return res.status(502).json({ message: 'Overpass API request failed', detail: failures });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

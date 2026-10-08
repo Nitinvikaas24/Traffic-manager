@@ -2,15 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Chip from '@mui/material/Chip';
+import { applyIsometricStyle, ISO_PITCH, ISO_BEARING, ISO_MAX_PITCH } from './isometricStyle';
 import './TrafficMap.css';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const DEFAULT_CENTER = [80.2707, 13.0827]; // Chennai, India (lng, lat)
+const DEFAULT_ZOOM = 14.2; // 3D buildings extrude from zoom 14; any wider reads as noise
+const SELECTED_ZOOM = 16;
 const SIGNALS_SOURCE_ID = 'signals-source';
+const SIGNALS_HALO_LAYER_ID = 'signals-halo-layer';
 const SIGNALS_LAYER_ID = 'signals-layer';
 
 const STATUS_COLORS = {
-  normal: '#4caf50',
+  normal: '#1fb98a',
   altered: '#ff9800',
   offline: '#f44336',
   maintenance: '#f44336',
@@ -18,7 +22,22 @@ const STATUS_COLORS = {
   overridden: '#f44336',
 };
 
-const ROUTE_COLORS = ['#4caf50', '#ffeb3b', '#ff9800'];
+const STATUS_COLOR_EXPRESSION = [
+  'match',
+  ['get', 'status'],
+  'normal', STATUS_COLORS.normal,
+  'altered', STATUS_COLORS.altered,
+  'offline', STATUS_COLORS.offline,
+  'maintenance', STATUS_COLORS.maintenance,
+  'blocked', STATUS_COLORS.blocked,
+  'overridden', STATUS_COLORS.overridden,
+  STATUS_COLORS.normal,
+];
+
+const ROUTE_COLORS = ['#12b76a', '#f79009', '#2e90fa'];
+// Stable default for the `routes` prop: an inline `= []` is a new array every
+// render, which re-fires the route/chip effects (and their setState) forever.
+const NO_ROUTES = [];
 const DASH_SEQUENCE = [
   [0, 4, 3],
   [1, 4, 2],
@@ -87,7 +106,7 @@ const buildSignalsGeoJson = (signalsList) => ({
  * thousands of points — without the per-marker DOM/event-listener overhead
  * that a maplibregl.Marker-per-signal approach would hit at that volume.
  */
-const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, routes = [] }) => {
+const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, routes = NO_ROUTES }) => {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const dashFrameRef = useRef(null);
@@ -98,6 +117,7 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
   const signalsRef = useRef(signals);
   const [mapReady, setMapReady] = useState(false);
   const [chipPositions, setChipPositions] = useState([]);
+  const [is3d, setIs3d] = useState(true);
 
   // Keep the latest callbacks/data available to handlers registered once at
   // map-init time, so they never see a stale closure.
@@ -133,10 +153,13 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
       container: containerRef.current,
       style: MAP_STYLE,
       center: DEFAULT_CENTER,
-      zoom: 12,
+      zoom: DEFAULT_ZOOM,
+      pitch: ISO_PITCH,
+      bearing: ISO_BEARING,
+      maxPitch: ISO_MAX_PITCH,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map.on('click', (e) => {
       const hasLayer = map.getLayer(SIGNALS_LAYER_ID);
@@ -151,7 +174,10 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
       }
     });
 
+    map.on('pitchend', () => setIs3d(map.getPitch() > 5));
+
     map.on('load', () => {
+      applyIsometricStyle(map);
       mapRef.current = map;
       setMapReady(true);
     });
@@ -173,33 +199,39 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
 
     if (!map.getSource(SIGNALS_SOURCE_ID)) {
       map.addSource(SIGNALS_SOURCE_ID, { type: 'geojson', data: geojson, promoteId: 'signalId' });
+      // Soft colored pool under each signal so it reads on the pale ground.
+      // Both circle layers lie flat on the map plane ('map' alignment) so they
+      // foreshorten with the tilted camera like discs on the road surface.
+      map.addLayer({
+        id: SIGNALS_HALO_LAYER_ID,
+        type: 'circle',
+        source: SIGNALS_SOURCE_ID,
+        paint: {
+          'circle-color': STATUS_COLOR_EXPRESSION,
+          'circle-radius': ['case', ['boolean', ['feature-state', 'selected'], false], 26, 17],
+          'circle-opacity': 0.22,
+          'circle-blur': 0.8,
+          'circle-pitch-alignment': 'map',
+        },
+      });
       map.addLayer({
         id: SIGNALS_LAYER_ID,
         type: 'circle',
         source: SIGNALS_SOURCE_ID,
         paint: {
-          'circle-color': [
-            'match',
-            ['get', 'status'],
-            'normal', STATUS_COLORS.normal,
-            'altered', STATUS_COLORS.altered,
-            'offline', STATUS_COLORS.offline,
-            'maintenance', STATUS_COLORS.maintenance,
-            'blocked', STATUS_COLORS.blocked,
-            'overridden', STATUS_COLORS.overridden,
-            STATUS_COLORS.normal,
-          ],
+          'circle-color': STATUS_COLOR_EXPRESSION,
           'circle-radius': ['case', ['boolean', ['feature-state', 'selected'], false], 10, 7],
+          'circle-pitch-alignment': 'map',
           'circle-stroke-width': [
             'case',
             ['boolean', ['feature-state', 'selected'], false],
             4,
-            ['case', ['boolean', ['feature-state', 'pulseEligible'], false], 3, 2],
+            ['case', ['boolean', ['feature-state', 'pulseEligible'], false], 3, 2.5],
           ],
           'circle-stroke-color': [
             'case',
             ['boolean', ['feature-state', 'selected'], false],
-            '#4dd0e1',
+            '#2563eb',
             ['case', ['boolean', ['feature-state', 'pulseEligible'], false], '#ff1744', '#ffffff'],
           ],
         },
@@ -240,7 +272,7 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     if (!selectedSignal) return;
     mapRef.current.flyTo({
       center: [selectedSignal.location.coordinates[0], selectedSignal.location.coordinates[1]],
-      zoom: 15,
+      zoom: SELECTED_ZOOM,
     });
   }, [selectedSignalId, mapReady, signals]);
 
@@ -250,9 +282,12 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     const map = mapRef.current;
     const activeIds = new Set();
 
-    routes.forEach((route, index) => {
+    // Added slowest-first so the fastest route draws on top of the others (and
+    // of their white casings) wherever the paths overlap.
+    routes.map((route, index) => ({ route, index })).reverse().forEach(({ route, index }) => {
       const sourceId = `route-${route.id}`;
       const layerId = `route-layer-${route.id}`;
+      const casingId = `route-casing-${route.id}`;
       activeIds.add(sourceId);
 
       const geojson = {
@@ -267,10 +302,19 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
 
       if (map.getSource(sourceId)) {
         map.getSource(sourceId).setData(geojson);
+        map.setPaintProperty(casingId, 'line-width', width + 4);
         map.setPaintProperty(layerId, 'line-width', width);
         map.setPaintProperty(layerId, 'line-opacity', opacity);
       } else {
         map.addSource(sourceId, { type: 'geojson', data: geojson });
+        // White casing keeps the route legible over the pale ground and buildings
+        map.addLayer({
+          id: casingId,
+          type: 'line',
+          source: sourceId,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#ffffff', 'line-width': width + 4, 'line-opacity': 0.9 },
+        });
         map.addLayer({
           id: layerId,
           type: 'line',
@@ -285,15 +329,15 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
       }
     });
 
-    // Remove stale route layers/sources
-    const existingLayers = map.getStyle().layers || [];
-    existingLayers.forEach((layer) => {
-      if (layer.id.startsWith('route-layer-') && !activeIds.has(layer.id.replace('route-layer-', 'route-'))) {
-        if (map.getLayer(layer.id)) map.removeLayer(layer.id);
-        const srcId = layer.id.replace('route-layer-', 'route-');
-        if (map.getSource(srcId)) map.removeSource(srcId);
+    // Remove stale route layers (line + casing), then their now-unused sources
+    const staleSources = new Set();
+    (map.getStyle().layers || []).forEach((layer) => {
+      if (layer.source?.startsWith('route-') && !activeIds.has(layer.source)) {
+        map.removeLayer(layer.id);
+        staleSources.add(layer.source);
       }
     });
+    staleSources.forEach((srcId) => map.removeSource(srcId));
 
     // Animate the dash pattern on route 0 only (fastest route) for a "marching ants" effect
     if (dashFrameRef.current) clearInterval(dashFrameRef.current);
@@ -303,7 +347,7 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
       dashFrameRef.current = setInterval(() => {
         if (!map.getLayer(`route-layer-${fastestRoute.id}`)) return;
         step = (step + 1) % DASH_SEQUENCE.length;
-        map.setLayoutProperty(`route-layer-${fastestRoute.id}`, 'line-dasharray', DASH_SEQUENCE[step]);
+        map.setPaintProperty(`route-layer-${fastestRoute.id}`, 'line-dasharray', DASH_SEQUENCE[step]);
       }, 120);
     }
 
@@ -338,6 +382,14 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     };
   }, [routes, mapReady]);
 
+  const toggleTilt = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const next = !is3d;
+    map.easeTo({ pitch: next ? ISO_PITCH : 0, bearing: next ? ISO_BEARING : 0, duration: 800 });
+    setIs3d(next);
+  };
+
   return (
     <div className="map-container">
       <div ref={containerRef} className="map-canvas" />
@@ -350,17 +402,25 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
           sx={{
             position: 'absolute',
             left: chip.x,
-            top: chip.y,
+            top: chip.y + chip.rank * 26, // stagger: near-identical routes share a midpoint
             transform: 'translate(-50%, -50%)',
-            backgroundColor: ROUTE_COLORS[chip.rank] || ROUTE_COLORS[2],
-            color: '#0a0a14',
+            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            border: `2px solid ${ROUTE_COLORS[chip.rank] || ROUTE_COLORS[2]}`,
+            color: '#12121f',
             fontWeight: 700,
             pointerEvents: 'none',
             zIndex: 2,
-            ...(chip.affected && { boxShadow: '0 0 0 3px rgba(255,255,255,0.6)' }),
+            ...(chip.affected && { boxShadow: `0 0 0 4px ${ROUTE_COLORS[chip.rank] || ROUTE_COLORS[2]}55` }),
           }}
         />
       ))}
+
+      <div className="map-pill">
+        <span>{signals.length} {signals.length === 1 ? 'signal' : 'signals'}</span>
+        <button type="button" className="map-pill-toggle" onClick={toggleTilt} disabled={!mapReady}>
+          {is3d ? '3D' : '2D'}
+        </button>
+      </div>
 
       <div className="map-legend">
         <h4 className="legend-title">Legend</h4>

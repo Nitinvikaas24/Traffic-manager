@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, MenuItem, TextField, Button, Stack, Chip, CircularProgress, Alert } from '@mui/material';
 
 const ROUTE_LABELS = ['Fastest', 'Alternate', 'Fallback'];
-const ROUTE_COLORS = ['success', 'warning', 'warning'];
+const ROUTE_COLORS = ['success', 'warning', 'info']; // matches the map's green / orange / blue route lines
 
 export default function RoutePanel({ signals, graphStatus, onRequestRoute, activeRoutes, onClearRoute }) {
   const [sourceId, setSourceId] = useState('');

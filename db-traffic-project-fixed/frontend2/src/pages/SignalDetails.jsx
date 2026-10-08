@@ -189,7 +189,7 @@ const SignalDetails = () => {
         <Grid container spacing={4}>
           <Grid item xs={12} md={8}>
             <Paper elevation={3} sx={{ p: 0, overflow: 'hidden' }}>
-              <Box sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography variant="h6">
                   Location Map
                 </Typography>

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const { overlaps } = require('../utils/bbox');
 const router = express.Router();
 
 // Public Overpass mirrors, tried in order. Hosted environments (e.g. Render)
@@ -18,12 +19,15 @@ const OVERPASS_USER_AGENT = 'traffic-signal-management-app/1.0';
 
 // Pre-generated Chennai road network (drivable highways only, gzipped JSON in
 // Overpass format). Public Overpass servers are slow/blocked from some hosts
-// and a city-wide live query is huge, so requests inside this area are served
-// from the snapshot. Anything outside it falls through to a live query.
+// and a city-wide live query is huge, so any request that touches this area is
+// served from the snapshot — even when the request box also extends past it
+// (the client pads its box, and the city's signal set reaches slightly beyond
+// the snapshot). Roads outside the snapshot are simply absent, which the
+// client handles by not snapping far-away signals. Requests that miss the area
+// entirely fall through to a live query.
 const SNAPSHOT_PATH = path.join(__dirname, '..', 'data', 'chennai-roads.json.gz');
 const SNAPSHOT_BBOX = [12.84, 80.12, 13.15, 80.31]; // minLat, minLng, maxLat, maxLng
-const insideSnapshot = ([minLat, minLng, maxLat, maxLng]) =>
-  minLat >= SNAPSHOT_BBOX[0] && minLng >= SNAPSHOT_BBOX[1] && maxLat <= SNAPSHOT_BBOX[2] && maxLng <= SNAPSHOT_BBOX[3];
+const overlapsSnapshot = (bbox) => overlaps(bbox, SNAPSHOT_BBOX);
 
 // In-memory cache: bbox key -> { data, fetchedAt }
 const cache = new Map();
@@ -45,7 +49,7 @@ router.get('/', async (req, res) => {
       return res.status(400).json({ message: 'bbox must be 4 comma-separated numbers: minLat,minLng,maxLat,maxLng' });
     }
 
-    if (insideSnapshot(parts) && fs.existsSync(SNAPSHOT_PATH)) {
+    if (overlapsSnapshot(parts) && fs.existsSync(SNAPSHOT_PATH)) {
       res.set({ 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', 'Cache-Control': 'public, max-age=86400' });
       return fs.createReadStream(SNAPSHOT_PATH).pipe(res);
     }

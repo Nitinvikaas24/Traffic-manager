@@ -71,7 +71,17 @@ export async function fetchRoadNetwork(signals) {
   return parseOverpassResponse(data);
 }
 
-/** Snaps each MongoDB Signal to the nearest OSM road-network node. */
+// OSM signal nodes are themselves road nodes (distance ~0) and hand-placed
+// ones land within a few tens of meters, so anything farther than this has no
+// road data nearby — e.g. a signal past the edge of the bundled road snapshot.
+// Snapping it anyway would pin it to a node kilometers away and route wrongly.
+export const MAX_SNAP_DISTANCE_METERS = 300;
+
+/**
+ * Snaps each MongoDB Signal to the nearest OSM road-network node. Signals with
+ * no node within MAX_SNAP_DISTANCE_METERS are left out of the map; routing
+ * reports those as "could not snap" instead of using a wrong location.
+ */
 export function snapSignalsToRoadNetwork(signals, roadNetwork) {
   const snapMap = new Map(); // signalId -> osmNodeId
 
@@ -88,7 +98,7 @@ export function snapSignalsToRoadNetwork(signals, roadNetwork) {
       }
     });
 
-    if (nearestId !== null) snapMap.set(signal.signalId, nearestId);
+    if (nearestId !== null && nearestDist <= MAX_SNAP_DISTANCE_METERS) snapMap.set(signal.signalId, nearestId);
   });
 
   return snapMap;

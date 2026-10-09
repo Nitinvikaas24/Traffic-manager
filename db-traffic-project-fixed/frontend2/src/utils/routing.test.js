@@ -18,6 +18,10 @@ const RUSH_HOUR = new Date('2025-01-07T09:00:00');
 
 const AVERAGE_SPEED_MPS = 8.33; // must match routing.js's internal constant
 
+// Webster uniform delay, d = (C - g)^2 / (2C), for the default plan (C = 120): Main approach
+// g = 50 green + 5 amber = 55 s; Side approach g = 35 + 5 = 40 s. Averaged across the two.
+const WEBSTER_WAIT_DEFAULT_PLAN = ((120 - 55) ** 2 / 240 + (120 - 40) ** 2 / 240) / 2;
+
 function makeSignal({ status = 'normal', cycleLength = 120, phases } = {}) {
   return {
     signalId: 'S1',
@@ -75,12 +79,12 @@ describe('buildGraph', () => {
       ]),
       adjacency: new Map([[1, [{ to: 2, distanceMeters: 1000 }]]]),
     };
-    const signal = makeSignal({ status: 'normal' }); // All_Red duration 25 -> wait = 12.5s
+    const signal = makeSignal({ status: 'normal' }); // Webster delay, averaged over the Main/Side approaches (see WEBSTER_WAIT_DEFAULT_PLAN)
     const snapMap = new Map([['S1', 2]]);
 
     const graph = buildGraph([signal], roadNetwork, snapMap, OFF_PEAK);
 
-    const expectedWeight = 1000 / AVERAGE_SPEED_MPS + 12.5; // congestion x1 off-peak, normal status
+    const expectedWeight = 1000 / AVERAGE_SPEED_MPS + WEBSTER_WAIT_DEFAULT_PLAN; // congestion x1 off-peak, normal status
     expect(graph.adjacency.get(1)[0].weight).toBeCloseTo(expectedWeight, 3);
   });
 
@@ -244,7 +248,9 @@ describe('recalculateRoutes + pathToCoordinates', () => {
     graph.nodes.set(4, { lat: 13.02, lng: 80.22 });
 
     const [result] = recalculateRoutes(graph, [{ id: 'pair1', sourceOsmId: 1, destOsmId: 4 }]);
-    expect(result.routes).toHaveLength(3);
+    // The cost-5 direct edge is 2.5x slower than the best route — too slow to offer as an alternative
+    expect(result.routes).toHaveLength(2);
+    expect(result.routes.map((r) => r.etaSeconds)).toEqual([2, 3]);
     expect(result.routes[0].rank).toBe(0);
     expect(result.routes[0].etaSeconds).toBe(2);
     expect(result.routes[0].coordinates).toEqual(

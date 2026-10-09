@@ -1,9 +1,9 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Stack } from '@mui/material';
-import TrafficIcon from '@mui/icons-material/Traffic';
+import { AppBar, Toolbar, Box, Button, Stack, Chip, Avatar } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import BrandMark from './BrandMark';
 
 const Navbar = () => {
   const location = useLocation();
@@ -22,30 +22,39 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      <Toolbar>
-        <TrafficIcon sx={{ mr: 1.5 }} />
-        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: 18 }}>
-          Traffic Signal Management
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {menuItems.map((item) => (
-            <Button
-              key={item.text}
-              component={Link}
-              to={item.path}
-              color={location.pathname === item.path ? 'primary' : 'inherit'}
-              variant={location.pathname === item.path ? 'outlined' : 'text'}
-            >
-              {item.text}
-            </Button>
-          ))}
+    <AppBar position="static" elevation={0}>
+      <Toolbar sx={{ minHeight: 60 }}>
+        <Box sx={{ flexGrow: 1 }}>
+          <BrandMark title="Traffic Signal Management" />
+        </Box>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          {menuItems.map((item) => {
+            // Nested pages (e.g. /signals/<id>) keep their section highlighted
+            const active = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path);
+            return (
+              <Button
+                key={item.text}
+                component={Link}
+                to={item.path}
+                color={active ? 'primary' : 'inherit'}
+                variant={active ? 'contained' : 'text'}
+                size="small"
+                sx={{ borderRadius: 999, px: 1.75, ...(!active && { color: 'text.secondary' }) }}
+              >
+                {item.text}
+              </Button>
+            );
+          })}
           {user && (
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-              {user.username}
-            </Typography>
+            <Chip
+              variant="outlined"
+              size="small"
+              sx={{ ml: 1 }}
+              avatar={<Avatar sx={{ fontWeight: 800 }}>{user.username?.[0]?.toUpperCase()}</Avatar>}
+              label={user.username}
+            />
           )}
-          <Button size="small" color="inherit" startIcon={<LogoutIcon />} onClick={handleLogout}>
+          <Button size="small" color="inherit" startIcon={<LogoutIcon />} onClick={handleLogout} sx={{ color: 'text.secondary' }}>
             Logout
           </Button>
         </Stack>

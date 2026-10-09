@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppBar,
+  Avatar,
   Toolbar,
   Typography,
   Box,
@@ -14,7 +15,6 @@ import {
   Button,
   Alert,
 } from '@mui/material';
-import TrafficIcon from '@mui/icons-material/Traffic';
 import CircleIcon from '@mui/icons-material/Circle';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -34,8 +34,31 @@ import useSignalsPolling from '../hooks/useSignalsPolling';
 import { useNotify } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { buildRoutingGraph, updateNodeWeights, recalculateRoutes } from '../utils/routing';
-import { tamilFontFamily } from '../theme';
+import BrandMark from '../components/BrandMark';
 import { staggerContainer, staggerItem } from '../utils/motionVariants';
+
+// A route is computed between the road nodes the two signals snapped to, which
+// can sit up to ~300 m from where the signal is drawn (hand-placed signals are
+// the worst). Extend each route's line to the signals' real positions so it
+// visibly starts and ends at the markers instead of stopping short of them.
+const withSignalEndpoints = (routes, signalList, sourceSignalId, destSignalId) => {
+  const positionOf = (id) => signalList.find((s) => s.signalId === id)?.location?.coordinates;
+  const start = positionOf(sourceSignalId);
+  const end = positionOf(destSignalId);
+  return routes.map((route) => ({
+    ...route,
+    coordinates: [...(start ? [start] : []), ...route.coordinates, ...(end ? [end] : [])],
+  }));
+};
+
+// Small status dot used as the leading icon of the header stat chips
+const StatDot = ({ color, className }) => (
+  <Box
+    component="span"
+    className={className}
+    sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0, '&&': { ml: '10px', mr: '-3px' } }}
+  />
+);
 
 const CommandCenter = () => {
   const navigate = useNavigate();
@@ -119,7 +142,7 @@ const CommandCenter = () => {
   const recomputeActiveRoute = useCallback(
     (changedSignalIds = []) => {
       if (!graphRef.current || !activePairRef.current) return;
-      const { sourceOsmId, destOsmId } = activePairRef.current;
+      const { sourceSignalId, destSignalId, sourceOsmId, destOsmId } = activePairRef.current;
       const [result] = recalculateRoutes(graphRef.current, [{ id: 'active', sourceOsmId, destOsmId }]);
       const newRoutes = result?.routes || [];
       const prevRoutes = currentRoutesRef.current;
@@ -136,7 +159,10 @@ const CommandCenter = () => {
         if (etaChanged || onPath) affectedRanks.add(route.rank);
       });
 
-      const routesWithFlags = newRoutes.map((r) => ({ ...r, affected: affectedRanks.has(r.rank) }));
+      const routesWithFlags = withSignalEndpoints(newRoutes, signals, sourceSignalId, destSignalId).map((r) => ({
+        ...r,
+        affected: affectedRanks.has(r.rank),
+      }));
       setCurrentRoutes(routesWithFlags);
 
       if (affectedTimeoutRef.current) {
@@ -182,12 +208,12 @@ const CommandCenter = () => {
       }
       activePairRef.current = { sourceSignalId, destSignalId, sourceOsmId, destOsmId };
       const [result] = recalculateRoutes(graph, [{ id: 'active', sourceOsmId, destOsmId }]);
-      setCurrentRoutes(result?.routes || []);
+      setCurrentRoutes(withSignalEndpoints(result?.routes || [], signals, sourceSignalId, destSignalId));
       if (!result || result.routes.length === 0) {
         notify('No route found between the selected signals', 'warning');
       }
     },
-    [ensureGraph, notify]
+    [ensureGraph, notify, signals]
   );
 
   const handleClearRoute = useCallback(() => {
@@ -300,24 +326,23 @@ const CommandCenter = () => {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar variant="dense">
-          <TrafficIcon sx={{ mr: 1.5 }} />
-          <Stack direction="row" spacing={1.5} alignItems="baseline" sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontSize: 18 }}>
-              Traffic Signal Command Center
-            </Typography>
-            <Typography sx={{ fontFamily: tamilFontFamily, fontSize: 14, color: 'text.secondary' }}>
-              சென்னை
-            </Typography>
-          </Stack>
+      <AppBar position="static" elevation={0}>
+        <Toolbar variant="dense" sx={{ minHeight: 54 }}>
+          <Box sx={{ flexGrow: 1 }}>
+            <BrandMark title="Traffic Signal Command Center" />
+          </Box>
           <Stack direction="row" spacing={2.5} alignItems="center">
             {user && (
-              <Typography variant="body2" color="text.secondary">
-                {user.username} ({user.role})
-              </Typography>
+              <Chip
+                variant="outlined"
+                size="small"
+                avatar={<Avatar sx={{ fontWeight: 800 }}>{user.username?.[0]?.toUpperCase()}</Avatar>}
+                label={`${user.username} (${user.role})`}
+              />
             )}
-            <Typography variant="body2">{now.toLocaleTimeString()}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              {now.toLocaleTimeString()}
+            </Typography>
             <Tooltip title={error ? `Disconnected: ${error}` : 'Connected'}>
               <CircleIcon sx={{ fontSize: 12, color: error ? 'error.main' : 'success.main' }} />
             </Tooltip>
@@ -334,10 +359,16 @@ const CommandCenter = () => {
       <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <motion.div variants={staggerItem}>
-            <Chip label={`${signals.length} signals`} size="small" />
+            <Chip
+              icon={<StatDot color="success.main" />}
+              label={`${signals.length} signals`}
+              size="small"
+              sx={{ bgcolor: 'rgba(255, 255, 255, 0.07)' }}
+            />
           </motion.div>
           <motion.div variants={staggerItem}>
             <Chip
+              icon={<StatDot color="warning.main" />}
               label={`${signals.filter((s) => s.status === 'altered').length} altered/scheduled`}
               size="small"
               color="warning"
@@ -346,6 +377,7 @@ const CommandCenter = () => {
           </motion.div>
           <motion.div variants={staggerItem}>
             <Chip
+              icon={<StatDot color="error.main" />}
               label={`${signals.filter((s) => s.status === 'overridden' || s.status === 'blocked').length} manual control`}
               size="small"
               color="error"
@@ -354,6 +386,7 @@ const CommandCenter = () => {
           </motion.div>
           <motion.div variants={staggerItem}>
             <Chip
+              icon={<StatDot color="primary.main" />}
               label={`${occasions.filter((o) => o.isActive).length} active schedules`}
               size="small"
               color="primary"

@@ -7,26 +7,43 @@ import { haversineDistance } from './geo';
 
 export { haversineDistance };
 
-const AVERAGE_SPEED_MPS = 8.33; // ~30 km/h urban default cruising speed
+const AVERAGE_SPEED_MPS = 8.33; // ~30 km/h urban default for edges with no road-class speed
 const LARGE_GRAPH_NODE_THRESHOLD = 2000;
+
+// Alternative-route selection (see findAlternativeRoutes)
+const ALTERNATIVE_COUNT = 3;
+const MAX_SHARED_FRACTION = 0.7; // an alternative may reuse at most 70% of another route's length
+const MAX_DETOUR_FACTOR = 1.6; // ...and may take at most 1.6x the fastest route's time
+const PENALTY_FACTOR = 1.6; // multiplier applied to roads already used, per round, to push the next search elsewhere
+const MAX_ALTERNATIVE_ATTEMPTS = 8;
 
 // ---------------------------------------------------------------------------
 // Edge weighting
 // ---------------------------------------------------------------------------
 
 /**
- * Expected wait (seconds) approaching a signal, approximated as half the total
- * "stop" phase duration in its current timing plan — a standard traffic-
- * engineering approximation derived from real currentTiming data, not measured.
+ * Expected wait (seconds) approaching a signal: Webster's uniform-delay
+ * formula, d = (C - g)^2 / (2C), where C is the cycle length and g the
+ * effective green (green + its amber) for an approach. The timing plan has one
+ * green phase per approach (e.g. MainRd_Green / SideRd_Green) but nothing says
+ * which approach a route arrives on, so the delay is averaged across them.
+ * Derived from the real currentTiming data, not measured.
  */
 function estimateSignalWaitSeconds(signal) {
   if (!signal || !signal.currentTiming) return 0;
   const { cycleLength, phases } = signal.currentTiming;
-  const stopPhases = (phases || []).filter((p) => /red/i.test(p.phaseId));
-  const stopDuration = stopPhases.length
-    ? stopPhases.reduce((sum, p) => sum + p.duration, 0)
-    : cycleLength / 2;
-  return stopDuration / 2;
+  const approaches = new Map(); // "MainRd" -> effective green seconds (green + amber)
+  (phases || []).forEach((p) => {
+    const match = /^(.*?)_?(green|amber|yellow)$/i.exec(p.phaseId);
+    if (!match) return;
+    approaches.set(match[1], (approaches.get(match[1]) || 0) + p.duration);
+  });
+  if (!approaches.size || !cycleLength) return (cycleLength || 0) / 4; // no phase structure: assume half the cycle is red, wait half of that
+  const delays = [...approaches.values()].map((green) => {
+    const red = Math.max(cycleLength - green, 0);
+    return (red * red) / (2 * cycleLength);
+  });
+  return delays.reduce((sum, d) => sum + d, 0) / delays.length;
 }
 
 /**
@@ -52,9 +69,9 @@ export function isSignalRoutable(signal) {
   return signal.status !== 'blocked' && signal.status !== 'offline';
 }
 
-function computeEdgeWeight(distanceMeters, targetSignal, atDate) {
+function computeEdgeWeight(distanceMeters, targetSignal, atDate, speedMps = AVERAGE_SPEED_MPS) {
   if (!isSignalRoutable(targetSignal)) return Infinity;
-  const baseSeconds = distanceMeters / AVERAGE_SPEED_MPS;
+  const baseSeconds = distanceMeters / speedMps;
   const waitSeconds = estimateSignalWaitSeconds(targetSignal);
   const congestion = estimateCongestionMultiplier(targetSignal, atDate);
   return (baseSeconds + waitSeconds) * congestion;
@@ -82,9 +99,16 @@ export function buildGraph(signals, roadNetwork, snapMap, atDate) {
   // instead of scanning the entire adjacency list (O(total edges)).
   const incomingEdges = new Map();
   const adjacency = new Map();
+  let maxSpeedMps = AVERAGE_SPEED_MPS;
   roadNetwork.adjacency.forEach((edges, fromId) => {
-    const list = edges.map(({ to, distanceMeters }) => {
-      const edge = { to, distanceMeters, weight: computeEdgeWeight(distanceMeters, signalByOsmNode.get(to), atDate) };
+    const list = edges.map(({ to, distanceMeters, speedMps }) => {
+      const edge = {
+        to,
+        distanceMeters,
+        speedMps,
+        weight: computeEdgeWeight(distanceMeters, signalByOsmNode.get(to), atDate, speedMps),
+      };
+      if (speedMps > maxSpeedMps) maxSpeedMps = speedMps;
       if (!incomingEdges.has(to)) incomingEdges.set(to, []);
       incomingEdges.get(to).push(edge);
       return edge;
@@ -94,7 +118,8 @@ export function buildGraph(signals, roadNetwork, snapMap, atDate) {
 
   return {
     nodes: roadNetwork.nodes, // Map<osmNodeId, {lat, lng}>
-    adjacency, // Map<osmNodeId, [{to, distanceMeters, weight}]>
+    maxSpeedMps, // fastest edge in this graph — A*'s admissible heuristic divides by it
+    adjacency, // Map<osmNodeId, [{to, distanceMeters, speedMps, weight}]>
     incomingEdges, // Map<osmNodeId, edge[]> — same edge objects as in `adjacency`
     signalByOsmNode, // Map<osmNodeId, Signal>
     snapMap, // Map<signalId, osmNodeId>
@@ -113,7 +138,7 @@ export function updateNodeWeights(graph, signalId, updatedSignal, atDate) {
   graph.signalByOsmNode.set(osmId, updatedSignal);
   const edges = graph.incomingEdges.get(osmId) || [];
   edges.forEach((edge) => {
-    edge.weight = computeEdgeWeight(edge.distanceMeters, updatedSignal, atDate);
+    edge.weight = computeEdgeWeight(edge.distanceMeters, updatedSignal, atDate, edge.speedMps);
   });
   return graph;
 }
@@ -147,51 +172,21 @@ function reconstructPath(prev, dist, sourceId, destId) {
   return { path, cost: dist.get(destId) };
 }
 
-/** Dijkstra's algorithm with a binary min-heap — baseline shortest path. */
-export function dijkstra(graph, sourceId, destId, options = {}) {
-  const excludedNodes = options.excludedNodes || new Set();
-  const excludedEdges = options.excludedEdges || new Set();
-
-  const dist = new Map([[sourceId, 0]]);
-  const prev = new Map();
-  const visited = new Set();
-  const heap = new MinHeap();
-  heap.push(sourceId, 0);
-
-  while (!heap.isEmpty()) {
-    const current = heap.pop();
-    if (current === destId) break;
-    if (visited.has(current)) continue;
-    visited.add(current);
-
-    const edges = graph.adjacency.get(current) || [];
-    edges.forEach(({ to, weight }) => {
-      if (weight === Infinity) return;
-      if (excludedNodes.has(to)) return;
-      if (excludedEdges.has(edgeKey(current, to))) return;
-      const newDist = dist.get(current) + weight;
-      if (newDist < (dist.get(to) ?? Infinity)) {
-        dist.set(to, newDist);
-        prev.set(to, current);
-        heap.push(to, newDist);
-      }
-    });
-  }
-
-  return reconstructPath(prev, dist, sourceId, destId);
-}
-
-/** A* search with a Haversine heuristic — faster for large, geographically spread graphs. */
-export function aStar(graph, sourceId, destId, options = {}) {
-  const excludedNodes = options.excludedNodes || new Set();
-  const excludedEdges = options.excludedEdges || new Set();
-  const destCoord = graph.nodes.get(destId);
-
-  const heuristic = (nodeId) => {
-    const coord = graph.nodes.get(nodeId);
-    if (!coord || !destCoord) return 0;
-    return haversineDistance(coord, destCoord) / AVERAGE_SPEED_MPS; // admissible lower bound
-  };
+/**
+ * The one search loop behind both Dijkstra and A* (they differ only in the
+ * heuristic). Options:
+ *   excludedNodes / excludedEdges — Yen's spur searches ban these outright.
+ *   edgePenalties — Map<edgeKey, multiplier >= 1>; makes those roads look
+ *     costlier so the search prefers elsewhere (used to find alternatives).
+ *     The returned cost then includes the penalties; callers wanting the real
+ *     travel time re-cost the path with pathCost().
+ * Edge keys are only built when an option actually needs them, because
+ * stringifying every relaxed edge dominated the runtime on city-scale graphs.
+ */
+function shortestPath(graph, sourceId, destId, options, heuristic) {
+  const excludedNodes = options.excludedNodes;
+  const excludedEdges = options.excludedEdges?.size ? options.excludedEdges : null;
+  const edgePenalties = options.edgePenalties?.size ? options.edgePenalties : null;
 
   const dist = new Map([[sourceId, 0]]);
   const prev = new Map();
@@ -208,9 +203,14 @@ export function aStar(graph, sourceId, destId, options = {}) {
     const edges = graph.adjacency.get(current) || [];
     edges.forEach(({ to, weight }) => {
       if (weight === Infinity) return;
-      if (excludedNodes.has(to)) return;
-      if (excludedEdges.has(edgeKey(current, to))) return;
-      const newDist = dist.get(current) + weight;
+      if (excludedNodes?.has(to)) return;
+      let cost = weight;
+      if (excludedEdges || edgePenalties) {
+        const key = edgeKey(current, to);
+        if (excludedEdges?.has(key)) return;
+        cost *= edgePenalties?.get(key) ?? 1;
+      }
+      const newDist = dist.get(current) + cost;
       if (newDist < (dist.get(to) ?? Infinity)) {
         dist.set(to, newDist);
         prev.set(to, current);
@@ -220,6 +220,25 @@ export function aStar(graph, sourceId, destId, options = {}) {
   }
 
   return reconstructPath(prev, dist, sourceId, destId);
+}
+
+/** Dijkstra's algorithm with a binary min-heap — baseline shortest path. */
+export function dijkstra(graph, sourceId, destId, options = {}) {
+  return shortestPath(graph, sourceId, destId, options, () => 0);
+}
+
+/** A* search with a Haversine heuristic — faster for large, geographically spread graphs. */
+export function aStar(graph, sourceId, destId, options = {}) {
+  const destCoord = graph.nodes.get(destId);
+  // Admissible: no edge is faster than the graph's fastest road, and every
+  // weight is at least its travel time (waits and congestion only add to it).
+  const topSpeed = graph.maxSpeedMps ?? AVERAGE_SPEED_MPS;
+  const heuristic = (nodeId) => {
+    const coord = graph.nodes.get(nodeId);
+    if (!coord || !destCoord) return 0;
+    return haversineDistance(coord, destCoord) / topSpeed;
+  };
+  return shortestPath(graph, sourceId, destId, options, heuristic);
 }
 
 /** Picks Dijkstra or A* at runtime based on graph size. */
@@ -285,6 +304,97 @@ export function yensKShortestPaths(graph, sourceId, destId, K = 3, shortestPathF
 }
 
 // ---------------------------------------------------------------------------
+// Alternative routes
+// ---------------------------------------------------------------------------
+
+const edgeBetween = (graph, from, to) => (graph.adjacency.get(from) || []).find((e) => e.to === to);
+// Direction-agnostic: driving the same street the other way is still the same street
+const roadKey = (a, b) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+
+function roadLengths(graph, path) {
+  const lengths = new Map();
+  for (let i = 0; i < path.length - 1; i++) {
+    lengths.set(roadKey(path[i], path[i + 1]), edgeBetween(graph, path[i], path[i + 1])?.distanceMeters || 0);
+  }
+  return lengths;
+}
+
+/** Fraction (0..1) of the shorter route's length that the two routes drive in common. */
+function sharedFraction(graph, pathA, pathB) {
+  const a = roadLengths(graph, pathA);
+  const b = roadLengths(graph, pathB);
+  let sharedLength = 0;
+  let sharedCount = 0;
+  a.forEach((length, key) => {
+    if (b.has(key)) {
+      sharedLength += length;
+      sharedCount += 1;
+    }
+  });
+  const sum = (m) => [...m.values()].reduce((total, length) => total + length, 0);
+  const shorterLength = Math.min(sum(a), sum(b));
+  if (shorterLength > 0) return sharedLength / shorterLength;
+  const shorterCount = Math.min(a.size, b.size); // no distances recorded: fall back to counting roads
+  return shorterCount > 0 ? sharedCount / shorterCount : 1;
+}
+
+/**
+ * Up to `count` genuinely different routes, fastest first. Yen's K-shortest
+ * paths is the textbook answer but returns near-duplicates in a street grid —
+ * the 2nd "best" route usually differs from the best by one corner, which is
+ * useless to a dispatcher. Instead this uses the penalty method: after each
+ * route is found, the roads it uses are made costlier and the search re-run,
+ * which pushes the next route onto different streets. A candidate is kept only
+ * if it shares at most MAX_SHARED_FRACTION of its length with every route
+ * already kept and isn't more than MAX_DETOUR_FACTOR slower than the fastest,
+ * so fewer than `count` routes come back when no real alternative exists.
+ * Reported costs are always real travel times, never the penalized ones.
+ */
+export function findAlternativeRoutes(graph, sourceId, destId, count = ALTERNATIVE_COUNT, shortestPathFn = selectAlgorithm(graph)) {
+  const best = shortestPathFn(graph, sourceId, destId);
+  if (!best) return [];
+
+  const routes = [{ path: best.path, cost: best.cost }];
+  const penalties = new Map();
+  const penalize = (path) => {
+    for (let i = 0; i < path.length - 1; i++) {
+      [edgeKey(path[i], path[i + 1]), edgeKey(path[i + 1], path[i])].forEach((key) => {
+        penalties.set(key, (penalties.get(key) ?? 1) * PENALTY_FACTOR);
+      });
+    }
+  };
+  penalize(best.path);
+
+  for (let attempt = 0; attempt < MAX_ALTERNATIVE_ATTEMPTS && routes.length < count; attempt++) {
+    const candidate = shortestPathFn(graph, sourceId, destId, { edgePenalties: penalties });
+    if (!candidate) break;
+    const cost = pathCost(graph, candidate.path);
+    const distinct = routes.every((r) => sharedFraction(graph, r.path, candidate.path) <= MAX_SHARED_FRACTION);
+    if (distinct && cost <= best.cost * MAX_DETOUR_FACTOR) routes.push({ path: candidate.path, cost });
+    penalize(candidate.path); // kept or not, steer the next round further away from it
+  }
+
+  return routes.sort((a, b) => a.cost - b.cost);
+}
+
+/** Distance, and how many signals (with their combined expected wait), a route passes through. */
+function routeStats(graph, path) {
+  let distanceMeters = 0;
+  let signalCount = 0;
+  let signalDelaySeconds = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const edge = edgeBetween(graph, path[i], path[i + 1]);
+    if (edge) distanceMeters += edge.distanceMeters;
+    const signal = graph.signalByOsmNode?.get(path[i + 1]);
+    if (signal) {
+      signalCount += 1;
+      signalDelaySeconds += estimateSignalWaitSeconds(signal);
+    }
+  }
+  return { distanceMeters, signalCount, signalDelaySeconds };
+}
+
+// ---------------------------------------------------------------------------
 // Live recalculation + map helpers
 // ---------------------------------------------------------------------------
 
@@ -296,7 +406,7 @@ export function yensKShortestPaths(graph, sourceId, destId, K = 3, shortestPathF
 export function recalculateRoutes(graph, activeRoutePairs) {
   const algorithm = selectAlgorithm(graph);
   return activeRoutePairs.map(({ id, sourceOsmId, destOsmId }) => {
-    const ranked = yensKShortestPaths(graph, sourceOsmId, destOsmId, 3, algorithm);
+    const ranked = findAlternativeRoutes(graph, sourceOsmId, destOsmId, ALTERNATIVE_COUNT, algorithm);
     return {
       id,
       sourceOsmId,
@@ -305,6 +415,7 @@ export function recalculateRoutes(graph, activeRoutePairs) {
         rank: index,
         path: r.path,
         etaSeconds: r.cost,
+        ...routeStats(graph, r.path),
         coordinates: pathToCoordinates(graph, r.path),
       })),
     };

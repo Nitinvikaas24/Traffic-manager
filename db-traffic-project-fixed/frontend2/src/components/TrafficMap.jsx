@@ -3,12 +3,14 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Chip from '@mui/material/Chip';
 import { applyIsometricStyle, ISO_PITCH, ISO_BEARING, ISO_MAX_PITCH } from './isometricStyle';
+import { ROUTE_COLORS } from './routeColors';
 import './TrafficMap.css';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const DEFAULT_CENTER = [80.2707, 13.0827]; // Chennai, India (lng, lat)
 const DEFAULT_ZOOM = 14.2; // 3D buildings extrude from zoom 14; any wider reads as noise
 const SELECTED_ZOOM = 16;
+const INITIAL_MAX_ZOOM = 13.5; // don't zoom in past this when framing a small signal set
 const SIGNALS_SOURCE_ID = 'signals-source';
 const SIGNALS_HALO_LAYER_ID = 'signals-halo-layer';
 const SIGNALS_LAYER_ID = 'signals-layer';
@@ -34,19 +36,33 @@ const STATUS_COLOR_EXPRESSION = [
   STATUS_COLORS.normal,
 ];
 
-const ROUTE_COLORS = ['#12b76a', '#f79009', '#2e90fa'];
 // Stable default for the `routes` prop: an inline `= []` is a new array every
 // render, which re-fires the route/chip effects (and their setState) forever.
 const NO_ROUTES = [];
-const DASH_SEQUENCE = [
-  [0, 4, 3],
-  [1, 4, 2],
-  [2, 4, 1],
-  [3, 4, 0],
-  [0, 1, 3, 3],
-  [0, 2, 3, 2],
-  [0, 3, 3, 1],
+
+// While a route is shown the basemap sinks into a night tone (a background
+// layer slid in just under the signals) so the routes glow instead of washing
+// out against the pale ground.
+const ROUTE_DIM_LAYER_ID = 'route-dim-layer';
+const ROUTE_DIM_COLOR = '#070d1f';
+const ROUTE_DIM_OPACITY = 0.5;
+const ROUTE_DIM_FADE_MS = 500;
+const ROUTE_ANIMATION_INTERVAL_MS = 50;
+
+// A bright pulse (white, fading to nothing behind it) that runs along a route.
+// `head` is the pulse position as a fraction of the route's length; it must stay
+// strictly inside (0, 1) so the gradient stops are strictly increasing.
+const pulseGradient = (head) => [
+  'interpolate', ['linear'], ['line-progress'],
+  0, 'rgba(255,255,255,0)',
+  Math.max(0.001, head - 0.12), 'rgba(255,255,255,0)',
+  head, 'rgba(255,255,255,0.95)',
+  Math.min(0.999, head + 0.012), 'rgba(255,255,255,0)',
+  1, 'rgba(255,255,255,0)',
 ];
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 const getStatusClass = (status) => {
   switch (status) {
@@ -109,12 +125,14 @@ const buildSignalsGeoJson = (signalsList) => ({
 const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, routes = NO_ROUTES }) => {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
-  const dashFrameRef = useRef(null);
+  const routeAnimRef = useRef(null);
   const popupRef = useRef(null);
   const openPopupSignalIdRef = useRef(null);
   const onSignalSelectRef = useRef(onSignalSelect);
   const onMapClickRef = useRef(onMapClick);
   const signalsRef = useRef(signals);
+  const routesRef = useRef(routes);
+  const initialFitDoneRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [chipPositions, setChipPositions] = useState([]);
   const [is3d, setIs3d] = useState(true);
@@ -130,6 +148,9 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
   useEffect(() => {
     signalsRef.current = signals;
   }, [signals]);
+  useEffect(() => {
+    routesRef.current = routes;
+  }, [routes]);
 
   const openPopupForSignal = (signal) => {
     if (popupRef.current) popupRef.current.remove();
@@ -183,7 +204,7 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     });
 
     return () => {
-      if (dashFrameRef.current) clearInterval(dashFrameRef.current);
+      if (routeAnimRef.current) clearInterval(routeAnimRef.current);
       if (popupRef.current) popupRef.current.remove();
       map.remove();
       mapRef.current = null;
@@ -282,54 +303,54 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     const map = mapRef.current;
     const activeIds = new Set();
 
-    // Added slowest-first so the fastest route draws on top of the others (and
-    // of their white casings) wherever the paths overlap.
+    // Each route is a neon tube: a wide soft bloom, a tighter inner glow, the
+    // coloured line, a white-hot core, and a pulse of light travelling along it.
+    // Added slowest-first so the fastest route stacks on top wherever paths overlap.
     routes.map((route, index) => ({ route, index })).reverse().forEach(({ route, index }) => {
       const sourceId = `route-${route.id}`;
-      const layerId = `route-layer-${route.id}`;
-      const casingId = `route-casing-${route.id}`;
+      const ids = {
+        bloom: `route-bloom-${route.id}`,
+        glow: `route-glow-${route.id}`,
+        line: `route-layer-${route.id}`,
+        core: `route-core-${route.id}`,
+        pulse: `route-pulse-${route.id}`,
+      };
       activeIds.add(sourceId);
 
+      const color = route.color || ROUTE_COLORS[index] || ROUTE_COLORS[2];
       const geojson = {
         type: 'Feature',
         properties: {},
         geometry: { type: 'LineString', coordinates: route.coordinates },
       };
-      const baseWidth = index === 0 ? 5 : 3.5;
-      const baseOpacity = index === 0 ? 0.95 : 0.75;
+      const baseWidth = index === 0 ? 6 : 4.5;
       const width = route.affected ? baseWidth + 2.5 : baseWidth;
-      const opacity = route.affected ? 1 : baseOpacity;
+      const sizes = {
+        bloom: width * 5 + 8,
+        glow: width * 2.4,
+        line: width,
+        core: Math.max(1.5, width * 0.35),
+        pulse: width * 1.15,
+      };
 
       if (map.getSource(sourceId)) {
         map.getSource(sourceId).setData(geojson);
-        map.setPaintProperty(casingId, 'line-width', width + 4);
-        map.setPaintProperty(layerId, 'line-width', width);
-        map.setPaintProperty(layerId, 'line-opacity', opacity);
+        Object.keys(ids).forEach((part) => map.setPaintProperty(ids[part], 'line-width', sizes[part]));
       } else {
-        map.addSource(sourceId, { type: 'geojson', data: geojson });
-        // White casing keeps the route legible over the pale ground and buildings
-        map.addLayer({
-          id: casingId,
-          type: 'line',
-          source: sourceId,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: { 'line-color': '#ffffff', 'line-width': width + 4, 'line-opacity': 0.9 },
-        });
-        map.addLayer({
-          id: layerId,
-          type: 'line',
-          source: sourceId,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': route.color || ROUTE_COLORS[index] || ROUTE_COLORS[2],
-            'line-width': width,
-            'line-opacity': opacity,
-          },
-        });
+        // lineMetrics is what lets the pulse layer address positions along the line
+        map.addSource(sourceId, { type: 'geojson', data: geojson, lineMetrics: true });
+        const layout = { 'line-join': 'round', 'line-cap': 'round' };
+        const addLine = (part, paint) =>
+          map.addLayer({ id: ids[part], type: 'line', source: sourceId, layout, paint: { 'line-width': sizes[part], ...paint } });
+        addLine('bloom', { 'line-color': color, 'line-opacity': 0.5, 'line-blur': 16 });
+        addLine('glow', { 'line-color': color, 'line-opacity': 0.85, 'line-blur': 4 });
+        addLine('line', { 'line-color': color, 'line-opacity': 1 });
+        addLine('core', { 'line-color': '#ffffff', 'line-opacity': 0.9 });
+        addLine('pulse', { 'line-gradient': pulseGradient(0.02) });
       }
     });
 
-    // Remove stale route layers (line + casing), then their now-unused sources
+    // Remove stale route layers (all five per route), then their now-unused sources
     const staleSources = new Set();
     (map.getStyle().layers || []).forEach((layer) => {
       if (layer.source?.startsWith('route-') && !activeIds.has(layer.source)) {
@@ -339,25 +360,92 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     });
     staleSources.forEach((srcId) => map.removeSource(srcId));
 
-    // Animate the dash pattern on route 0 only (fastest route) for a "marching ants" effect
-    if (dashFrameRef.current) clearInterval(dashFrameRef.current);
-    const fastestRoute = routes[0];
-    if (fastestRoute && map.getLayer(`route-layer-${fastestRoute.id}`)) {
-      let step = 0;
-      dashFrameRef.current = setInterval(() => {
-        if (!map.getLayer(`route-layer-${fastestRoute.id}`)) return;
-        step = (step + 1) % DASH_SEQUENCE.length;
-        map.setPaintProperty(`route-layer-${fastestRoute.id}`, 'line-dasharray', DASH_SEQUENCE[step]);
-      }, 120);
+    // Run a pulse of light down each route and let its bloom breathe. Slower
+    // routes pulse a little slower, so the three are easy to tell apart.
+    if (routeAnimRef.current) clearInterval(routeAnimRef.current);
+    if (routes.length > 0 && !prefersReducedMotion()) {
+      const startedAt = performance.now();
+      routeAnimRef.current = setInterval(() => {
+        const elapsed = performance.now() - startedAt;
+        routes.forEach((route, index) => {
+          const pulseId = `route-pulse-${route.id}`;
+          const bloomId = `route-bloom-${route.id}`;
+          if (!map.getLayer(pulseId)) return;
+          const head = 0.01 + 0.97 * ((elapsed / (3200 + index * 900)) % 1);
+          map.setPaintProperty(pulseId, 'line-gradient', pulseGradient(head));
+          map.setPaintProperty(bloomId, 'line-opacity', (route.affected ? 0.7 : 0.5) + 0.15 * Math.sin(elapsed / 400 + index));
+        });
+      }, ROUTE_ANIMATION_INTERVAL_MS);
     }
 
     return () => {
-      if (dashFrameRef.current) {
-        clearInterval(dashFrameRef.current);
-        dashFrameRef.current = null;
+      if (routeAnimRef.current) {
+        clearInterval(routeAnimRef.current);
+        routeAnimRef.current = null;
       }
     };
   }, [routes, mapReady]);
+
+  // Frame a newly requested trip. Keyed on the trip's endpoints, so live
+  // recomputes of the same trip (signal changes, polling) don't yank the camera.
+  const tripKey = routes[0]?.coordinates?.length
+    ? `${routes[0].coordinates[0]}|${routes[0].coordinates[routes[0].coordinates.length - 1]}`
+    : '';
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !tripKey) return;
+    const bounds = new maplibregl.LngLatBounds();
+    routesRef.current.forEach((route) => route.coordinates.forEach((coord) => bounds.extend(coord)));
+    const map = mapRef.current;
+    // fitBounds resets the bearing to north unless told otherwise; keep the isometric angle
+    map.fitBounds(bounds, {
+      padding: { top: 90, bottom: 130, left: 70, right: 70 },
+      maxZoom: 16,
+      duration: 1000,
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+    });
+  }, [tripKey, mapReady]);
+
+  // Open framed on the whole signal network, so the map looks as populated as it is
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || initialFitDoneRef.current || signals.length < 2 || selectedSignalId) return;
+    initialFitDoneRef.current = true;
+    const bounds = new maplibregl.LngLatBounds();
+    signals.forEach((signal) => bounds.extend(signal.location.coordinates));
+    mapRef.current.fitBounds(bounds, {
+      padding: 60,
+      maxZoom: INITIAL_MAX_ZOOM,
+      duration: 0,
+      bearing: ISO_BEARING,
+      pitch: ISO_PITCH,
+    });
+  }, [mapReady, signals, selectedSignalId]);
+
+  // Fade the basemap down to night while any route is shown, and back up when cleared
+  const hasRoutes = routes.length > 0;
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return undefined;
+    const map = mapRef.current;
+    const target = hasRoutes ? ROUTE_DIM_OPACITY : 0;
+    if (!map.getLayer(ROUTE_DIM_LAYER_ID)) {
+      if (target === 0) return undefined;
+      // Just under the signals, so they and the routes stay bright above the dimmed ground
+      map.addLayer(
+        { id: ROUTE_DIM_LAYER_ID, type: 'background', paint: { 'background-color': ROUTE_DIM_COLOR, 'background-opacity': 0 } },
+        map.getLayer(SIGNALS_HALO_LAYER_ID) ? SIGNALS_HALO_LAYER_ID : undefined
+      );
+    }
+    const from = map.getPaintProperty(ROUTE_DIM_LAYER_ID, 'background-opacity') ?? 0;
+    const startedAt = performance.now();
+    let frame;
+    const step = (now) => {
+      const progress = Math.min(1, (now - startedAt) / ROUTE_DIM_FADE_MS);
+      if (map.getLayer(ROUTE_DIM_LAYER_ID)) map.setPaintProperty(ROUTE_DIM_LAYER_ID, 'background-opacity', from + (target - from) * progress);
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [hasRoutes, mapReady]);
 
   // Keep ETA chip screen positions in sync with the map viewport
   useEffect(() => {

@@ -439,7 +439,8 @@ const TrafficMap = ({ signals, selectedSignalId, onSignalSelect, onMapClick, rou
     const startedAt = performance.now();
     let frame;
     const step = (now) => {
-      const progress = Math.min(1, (now - startedAt) / ROUTE_DIM_FADE_MS);
+      // rAF's timestamp is the frame start, which can precede the performance.now() above
+      const progress = Math.min(1, Math.max(0, (now - startedAt) / ROUTE_DIM_FADE_MS));
       if (map.getLayer(ROUTE_DIM_LAYER_ID)) map.setPaintProperty(ROUTE_DIM_LAYER_ID, 'background-opacity', from + (target - from) * progress);
       if (progress < 1) frame = requestAnimationFrame(step);
     };
